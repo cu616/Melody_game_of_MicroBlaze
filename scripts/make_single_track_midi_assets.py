@@ -162,85 +162,110 @@ def q(seq, velocity=120):
     return [(n, 1.0, velocity) for n in seq]
 
 
-def main():
-    # Alan Walker - Faded: classroom single-line lead. The user's numbered
-    # notation was in A minor for easy keyboard fingering; this version is
-    # transposed down a minor third to F# minor, closer to the familiar record.
-    faded_phrase_a = q(
-        [
-            "F#4",
-            "F#4",
-            "E4",
-            "F#4",
-            "A4",
-            "A4",
-            "G#4",
-            "A4",
-            "F#4",
-            "F#4",
-            "E4",
-            "F#4",
-            "C#5",
-            "C#5",
-            "B4",
-            "C#5",
-        ],
-        124,
-    )
-    faded_phrase_b = q(
-        [
-            "F#4",
-            "E4",
-            "C#4",
-            "B3",
-            "A3",
-            "G#3",
-            "A3",
-            "B3",
-        ],
-        122,
-    ) + [("C#4", 4.0, 122)]
-    faded_phrase_c = q(
-        [
-            "C#4",
-            "B3",
-            "A3",
-            "G#3",
-            "F#3",
-            "E3",
-            "F#3",
-            "G#3",
-        ],
-        122,
-    ) + [("A3", 4.0, 122)]
-    faded_phrase_d = q(
-        [
-            "F#4",
-            "E4",
-            "C#4",
-            "B3",
-            "A3",
-            "G#3",
-            "A3",
-            "B3",
-            "C#4",
-            "B3",
-            "A3",
-            "G#3",
-            "F#3",
-            "E3",
-            "F#3",
-        ],
-        122,
-    ) + [("F#3", 5.0, 122)]
-    faded = faded_phrase_a + faded_phrase_a + faded_phrase_b + faded_phrase_c + faded_phrase_b + faded_phrase_d
+def melody(seq, velocity=120):
+    return [(note, beats, velocity) for note, beats in seq]
 
-    # Canon in D: compact classroom demo melody, not default-selected.
-    canon = []
-    canon += q(["F#4", "E4", "D4", "C#4", "B3", "A3", "B3", "C#4"], 118)
-    canon += q(["D4", "F#4", "A4", "G4", "F#4", "E4", "F#4", "D4"], 120)
-    canon += q(["A4", "B4", "C#5", "D5", "C#5", "B4", "A4", "G4"], 120)
-    canon += q(["F#4", "E4", "D4", "A3", "B3", "C#4", "D4", None], 118)
+
+def main():
+    # Faded: compact hand-written lead from the user's numbered notation.
+    # Single-note only keeps the embedded VS1003B MIDI ROM small.
+    faded_intro = q(
+        [
+            "A4",
+            "A4",
+            "G4",
+            "A4",
+            "C5",
+            "C5",
+            "B4",
+            "C5",
+            "A4",
+            "A4",
+            "G4",
+            "A4",
+            "E5",
+            "E5",
+            "D5",
+            "E5",
+        ],
+        120,
+    )
+    faded_chorus = melody(
+        [
+            ("A4", 1.0),
+            ("G4", 1.0),
+            ("E4", 1.0),
+            ("D4", 1.0),
+            ("C4", 1.0),
+            ("B3", 1.0),
+            ("C4", 1.0),
+            ("D4", 1.0),
+            ("E4", 4.0),
+            ("E4", 1.0),
+            ("D4", 1.0),
+            ("C4", 1.0),
+            ("B3", 1.0),
+            ("A3", 1.0),
+            ("G3", 1.0),
+            ("A3", 1.0),
+            ("B3", 1.0),
+            ("C4", 4.0),
+            ("A4", 1.0),
+            ("G4", 1.0),
+            ("E4", 1.0),
+            ("D4", 1.0),
+            ("C4", 1.0),
+            ("B3", 1.0),
+            ("C4", 1.0),
+            ("D4", 1.0),
+            ("E4", 4.0),
+        ],
+        122,
+    )
+    faded = faded_intro + faded_chorus
+
+    # Canon in D: small hand-written single-line demo. It starts with the
+    # recognizable ground pattern, then moves into an upper melody.
+    canon = melody(
+        [
+            ("D3", 2.0),
+            ("A3", 2.0),
+            ("B3", 2.0),
+            ("F#3", 2.0),
+            ("G3", 2.0),
+            ("D3", 2.0),
+            ("G3", 2.0),
+            ("A3", 2.0),
+            ("F#4", 2.0),
+            ("E4", 2.0),
+            ("D4", 2.0),
+            ("C#4", 2.0),
+            ("B3", 2.0),
+            ("A3", 2.0),
+            ("B3", 2.0),
+            ("C#4", 2.0),
+            ("D4", 1.0),
+            ("F#4", 1.0),
+            ("A4", 1.0),
+            ("G4", 1.0),
+            ("F#4", 1.0),
+            ("E4", 1.0),
+            ("F#4", 1.0),
+            ("D4", 1.0),
+            ("A4", 1.0),
+            ("B4", 1.0),
+            ("C#5", 1.0),
+            ("D5", 1.0),
+            ("C#5", 1.0),
+            ("B4", 1.0),
+            ("A4", 1.0),
+            ("G4", 1.0),
+            ("F#4", 1.0),
+            ("E4", 1.0),
+            ("D4", 2.0),
+        ],
+        118,
+    )
 
     c_major_scale = [
         ("C4", 261.63),

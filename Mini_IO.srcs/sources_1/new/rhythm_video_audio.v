@@ -1809,8 +1809,8 @@ module vs1003b_mp3_rom_player (
     localparam CMD_DUMMY_FF   = 4'd8;
 
     localparam integer MP3_LEN = 1024;
-    localparam [17:0] CANON_LAST = 18'd344;
-    localparam [17:0] FADE_LAST = 18'd739;
+    localparam [17:0] CANON_LAST = 18'd379;
+    localparam [17:0] FADE_LAST = 18'd451;
     localparam [17:0] PITCH_LAST = 18'd161;
     localparam [12:0] FLUSH_BYTES = 13'd0;
     localparam [5:0] BURST_BYTES = 6'd32;

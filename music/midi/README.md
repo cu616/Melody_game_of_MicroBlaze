@@ -7,8 +7,8 @@ Generated MIDI note numbers include a `-1` semitone compensation for the current
 
 | asset | midi bytes | 32-bit words | role |
 | --- | ---: | ---: | --- |
-| `faded_main_melody` | 740 | 185 | default selected VS1003B demo |
-| `canon_main_melody` | 345 | 87 | backup |
+| `faded_main_melody` | 452 | 113 | default selected VS1003B demo |
+| `canon_main_melody` | 380 | 95 | backup |
 | `vs1003_pitch_calibration` | 162 | 41 | backup |
 
 The default selected file is `faded_main_melody`, because it is short, recognizable, and much smaller than an embedded MP3 clip.

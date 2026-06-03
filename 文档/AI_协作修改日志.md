@@ -2,6 +2,46 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 Faded/Canon：改为手写小内存主旋律 MIDI
+
+用户要求：
+- 保留 VS1003B C 大调校准方案。
+- 根据用户提供的简谱和本地 MP3 参考，手写 Faded 与 Canon 主旋律。
+- 注意内存占用要小。
+
+本次修改：
+- 保留 `SW14=1, SW2=1` 的 C 大调校音模式和 `VS1003_OUTPUT_TRANSPOSE_SEMITONES = -1` 半音补偿。
+- `scripts/make_single_track_midi_assets.py`
+  - Faded 改为按用户简谱整理的 A 小调单轨主旋律：前奏片段 + 副歌片段。
+  - Canon 改为小体积单轨版本：先播放 D-A-Bm-F#m-G-D-G-A 的可识别低音走向，再进入上方旋律。
+  - 两首都保持单音线条，不嵌入 MP3/PCM，不加多声部和弦，以减少 ROM 占用。
+- 重新生成 `music/midi/` 中 Faded/Canon 的 `.mid`、`.mem`、`_1024.mem`、`.COE`、`.vh`、`_notes.md`。
+- `rhythm_video_audio.v`
+  - `FADE_LAST` 更新为 `18'd451`，对应 `faded_main_melody` 长度 `452 bytes`。
+  - `CANON_LAST` 更新为 `18'd379`，对应 `canon_main_melody` 长度 `380 bytes`。
+
+当前资源大小：
+```text
+faded_main_melody: 452 bytes, 113 32-bit words
+canon_main_melody: 380 bytes, 95 32-bit words
+vs1003_pitch_calibration: 162 bytes, 41 32-bit words
+```
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.212 ns
+Route TNS = 0.000 ns
+SHA256 = 7A00E8E38E226FD910B4F0183C47BA67B22E8400E351009987203BC6AD12E42E
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 VS1003B：按实测高半音加入全局 MIDI 补偿
 
 用户反馈：
