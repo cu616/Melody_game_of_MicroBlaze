@@ -2,6 +2,43 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 VS1003B：按实测高半音加入全局 MIDI 补偿
+
+用户反馈：
+- 连续 C 大调校音音阶中，每个音听起来都比理论音高了半个音。
+
+判断：
+- 因为所有音都是统一高半音，这不像是单个音符频率表错误，而是 VS1003B 当前 MIDI 播放链路存在全局转调偏差。
+- 处理策略是对生成进 ROM 的 MIDI note number 整体下移 1 个半音，让实际听感回到目标理论音高。
+
+本次修改：
+- `scripts/make_single_track_midi_assets.py`
+  - 新增 `VS1003_OUTPUT_TRANSPOSE_SEMITONES = -1`。
+  - `build_midi()` 在写入 Note On/Off 前对 MIDI note number 加该补偿。
+  - 该补偿同时作用于 `faded_main_melody`、`canon_main_melody` 和 `vs1003_pitch_calibration`。
+- 重新生成 `music/midi/` 下三组 MIDI/ROM/COE/音符说明文件。
+- `README.md`、`music/midi/README.md`、`文档/按键与拨码开关作用分析.md` 已记录该补偿。
+
+注意：
+- 文档中的 C4/D4/... 仍表示“希望最终听到/测到”的目标音高。
+- ROM 内实际 MIDI note number 已低半音，用来抵消当前模块实测高半音。
+- 若后续手机调音器显示不是正好半音偏差，只需调整 `VS1003_OUTPUT_TRANSPOSE_SEMITONES` 或进一步引入 cents 级 pitch bend 补偿。
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.121 ns
+Route TNS = 0.000 ns
+SHA256 = DB43B4C407706EB74F756AA69B1C54B79CD7B7BF41DBB3AD6AF663BAE9308A2E
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 VS1003B：校音模式改为连续 C 大调音阶
 
 用户要求：

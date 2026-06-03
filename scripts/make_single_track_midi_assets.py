@@ -7,6 +7,11 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 TPQ = 480
 
+# The user's VS1003B module currently sounds about one semitone sharp when
+# playing the generated MIDI files, so generated note numbers are compensated
+# down by one semitone while tables keep the intended audible pitch names.
+VS1003_OUTPUT_TRANSPOSE_SEMITONES = -1
+
 
 def vlq(value):
     parts = [value & 0x7F]
@@ -65,7 +70,9 @@ def build_midi(path, title, bpm, notes, program=80):
         if note is None:
             pending_delta += dur
             continue
-        pitch = note_name_to_midi(note)
+        pitch = note_name_to_midi(note) + VS1003_OUTPUT_TRANSPOSE_SEMITONES
+        if pitch < 0 or pitch > 127:
+            raise ValueError(f"{note}: transposed MIDI pitch {pitch} is out of range")
         track += midi_event(pending_delta, 0x90, pitch, velocity)
         track += midi_event(dur, 0x80, pitch, 0)
         pending_delta = 0
@@ -275,6 +282,8 @@ def main():
                 "",
                 "These files are generated for VS1003B playback using the same idea as the VGA_hw reference project:",
                 "single-track Standard MIDI bytes are packed into 32-bit hex COE words for ROM initialization.",
+                "",
+                f"Generated MIDI note numbers include a `{VS1003_OUTPUT_TRANSPOSE_SEMITONES}` semitone compensation for the current VS1003B module, because board testing found the raw output about one semitone sharp.",
                 "",
                 "| asset | midi bytes | 32-bit words | role |",
                 "| --- | ---: | ---: | --- |",
