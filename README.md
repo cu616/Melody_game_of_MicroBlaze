@@ -63,8 +63,28 @@ XDCS XCS DREQ SCLK MOSI MISO XRST GND 5V
 - `scripts/make_single_track_midi_assets.py`：生成 MIDI、mem、COE 和音符表。
 - `music/midi/`：Canon/Faded/校音 MIDI 与 ROM 初始化资源。
 - `文档/AI_协作修改日志.md`：每次需求、修改、验证和后续注意事项。
+- `文档/Verilog迁移为MicroBlaze控制程序方案.md`：说明哪些常改内容应迁到 MicroBlaze C 程序，以减少重新生成 bitstream 的次数。
 - `文档/按键与拨码开关作用分析.md`：按键/拨码/校音模式说明。
 - `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`：当前已同步的下载 bitstream。
+
+## MicroBlaze 迁移方向
+
+当前工程已经是 MicroBlaze SoC + 自定义 RTL 外设的结构，但歌曲 ROM、部分谱面、判定和 VS1003B 播放状态机仍有不少内容写在 Verilog 中。只要这些 Verilog/ROM 初始化内容改变，就通常需要重新综合、实现和生成 bitstream。
+
+后续建议把经常改的内容迁到 MicroBlaze 软件侧：
+
+- 歌曲选择、BPM、音量、暂停、流速、菜单状态。
+- 谱面数据、判定窗口、GOOD/BAD/MISS、分数和连击。
+- VS1003B 初始化、DREQ 流控和 MIDI/MP3 数据发送。
+- LED、RGB、数码管、VGA UI 状态寄存器更新。
+
+硬件侧则尽量固定为可复用外设：
+
+- VGA 行场同步和像素扫描。
+- AXI GPIO / AXI SPI / AXI Timer / Interrupt Controller。
+- 少量自定义 AXI-Lite 状态寄存器或轻量绘图外设。
+
+这样硬件接口稳定后，改歌、改谱面、调 BPM 和改判定逻辑时优先重新编译 SDK 软件或替换外部数据，不必每次重新跑完整 Vivado bitstream。详细方案见 `文档/Verilog迁移为MicroBlaze控制程序方案.md`。
 
 ## 构建
 

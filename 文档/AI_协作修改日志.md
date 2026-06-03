@@ -2,6 +2,20 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-04 MicroBlaze：补充常见内容迁移与免 bitstream 策略
+
+用户要求：
+- 把常见内容移植 MicroBlaze 的方案写进文档。
+- 同步信息到 GitHub。
+
+本次修改：
+- 在 `README.md` 增加 MicroBlaze 迁移方向入口，说明哪些内容应从 RTL/ROM 转到 C 程序或外部数据。
+- 在 `文档/Verilog迁移为MicroBlaze控制程序方案.md` 增加“常见内容迁移清单”和“避免反复生成 bitstream 的工作流”。
+- 在 `文档/MicroBlaze_SoC实现说明.md` 增加 bitstream 生成慢的原因，以及如何通过软件侧迁移减少 Vivado 重跑。
+
+验证结果：
+- 本次为纯文档修改，未重新综合或生成 bitstream。
+
 ### 2026-06-04 Canon：十六分变奏降速
 
 用户反馈：
