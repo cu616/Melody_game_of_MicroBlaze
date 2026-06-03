@@ -2,6 +2,66 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 README 与 VS1003B 多输入口校音模式
+
+用户要求：
+- 补充项目说明 README，并提交远程仓库。
+- 设计几个输入口，用于检查频率/音调准不准，不依赖屏幕提示，直接分析。
+
+本次修改：
+- 新增 `README.md`：
+  - 说明本项目基于 HUSTerCH / FengSheng_Hust 旧版 `Mini_IO` 工程继续开发。
+  - 说明当前 MicroBlaze/VGA/VS1003B/J8 音频/音游功能。
+  - 说明 VS1003B 接线、拨码、校音方法和关键文件。
+- `scripts/make_single_track_midi_assets.py`
+  - 新增 8 个固定标准音 MIDI：
+    - `vs1003_pitch_0..7.mid`
+    - `vs1003_pitch_0..7_1024.mem`
+    - `vs1003_pitch_0..7_hex.COE`
+    - `vs1003_pitch_0..7_notes.md`
+  - 新增 `music/midi/vs1003_pitch_test_table.md`，记录拨码到频率的对应关系。
+- `rhythm_video_audio.v`
+  - `SW14=1` 时进入 VS1003B 校音模式。
+  - `SW5..SW3` 在校音模式下作为 `pitch_select`，直接选择固定标准音。
+  - `SW2=1` 负责启用 VS1003B 播放器。
+  - 切换 `SW5..SW3` 时播放器会重新初始化并播放新标准音，便于手机调音器稳定测量。
+- `文档/按键与拨码开关作用分析.md`
+  - 更新 `SW14 + SW5..SW3 + SW2` 的校音模式说明。
+
+校音输入口表：
+
+| `SW14` | `SW2` | `SW5 SW4 SW3` | 输出 |
+| --- | --- | --- | --- |
+| `1` | `1` | `000` | `A3 = 220.00 Hz` |
+| `1` | `1` | `001` | `C4 = 261.63 Hz` |
+| `1` | `1` | `010` | `E4 = 329.63 Hz` |
+| `1` | `1` | `011` | `A4 = 440.00 Hz` |
+| `1` | `1` | `100` | `C5 = 523.25 Hz` |
+| `1` | `1` | `101` | `E5 = 659.25 Hz` |
+| `1` | `1` | `110` | `A5 = 880.00 Hz` |
+| `1` | `1` | `111` | `C6 = 1046.50 Hz` |
+
+分析方法：
+- 不看 VGA 屏幕，只听 VS1003B 的 PHONE 输出。
+- 用手机调音器测 `SW14=1, SW2=1` 下的固定音。
+- 若所有固定音整体偏高/偏低，优先怀疑 VS1003B 模块晶振、时钟寄存器或初始化。
+- 若固定音基本准确，但歌曲不像，优先修改 MIDI 乐谱/节奏。
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.547 ns
+Route TNS = 0.000 ns
+SHA256 = E28866A65A829585E448953705039CD539A99202200AFA87002258EE6BF1E97B
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 VS1003B：新增标准音校准模式用于判断走音来源
 
 用户反馈：

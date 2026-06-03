@@ -229,6 +229,7 @@ module rhythm_video_audio (
         .reset(reset_active),
         .enable(vs1003_player_enabled),
         .song_select(vs1003_song_select),
+        .pitch_select(game_speed),
         .dreq(vs_dreq),
         .miso(vs_miso),
         .mosi(vs_mosi),
@@ -1770,6 +1771,7 @@ module vs1003b_mp3_rom_player (
     input wire reset,
     input wire enable,
     input wire [1:0] song_select,
+    input wire [2:0] pitch_select,
     input wire dreq,
     input wire miso,
     output reg mosi,
@@ -1812,6 +1814,8 @@ module vs1003b_mp3_rom_player (
     localparam [17:0] CANON_LAST = 18'd344;
     localparam [17:0] FADE_LAST = 18'd739;
     localparam [17:0] PITCH_LAST = 18'd121;
+    localparam [17:0] PITCH_SINGLE_LAST = 18'd86;
+    localparam [17:0] PITCH_SINGLE_C6_LAST = 18'd87;
     localparam [12:0] FLUSH_BYTES = 13'd0;
     localparam [5:0] BURST_BYTES = 6'd32;
     localparam [32:0] CANON_LOOP_WAIT = 33'd2000000000;
@@ -1834,23 +1838,62 @@ module vs1003b_mp3_rom_player (
     reg dreq_sync = 1'b0;
     reg spi_busy = 1'b0;
     reg [1:0] active_song = 2'd0;
+    reg [2:0] active_pitch_select = 3'd0;
 
     (* ram_style = "block" *) reg [7:0] canon_rom [0:MP3_LEN-1];
     (* ram_style = "block" *) reg [7:0] fade_rom [0:MP3_LEN-1];
     (* ram_style = "block" *) reg [7:0] pitch_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch0_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch1_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch2_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch3_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch4_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch5_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch6_rom [0:MP3_LEN-1];
+    (* ram_style = "block" *) reg [7:0] pitch7_rom [0:MP3_LEN-1];
 
     initial begin
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/canon_main_melody_1024.mem", canon_rom);
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/faded_main_melody_1024.mem", fade_rom);
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_calibration_1024.mem", pitch_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_0_1024.mem", pitch0_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_1_1024.mem", pitch1_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_2_1024.mem", pitch2_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_3_1024.mem", pitch3_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_4_1024.mem", pitch4_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_5_1024.mem", pitch5_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_6_1024.mem", pitch6_rom);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/music/midi/vs1003_pitch_7_1024.mem", pitch7_rom);
     end
 
     wire _unused_miso = miso;
     wire dreq_ready = dreq_sync;
     wire pitch_mode = (active_song == 2'd2);
-    wire [17:0] selected_last = pitch_mode ? PITCH_LAST : (active_song[0] ? FADE_LAST : CANON_LAST);
+    wire [17:0] selected_pitch_last = (active_pitch_select == 3'd7) ? PITCH_SINGLE_C6_LAST : PITCH_SINGLE_LAST;
+    wire [17:0] selected_last = pitch_mode ? selected_pitch_last : (active_song[0] ? FADE_LAST : CANON_LAST);
     wire [32:0] selected_loop_wait = pitch_mode ? PITCH_LOOP_WAIT : (active_song[0] ? FADE_LOOP_WAIT : CANON_LOOP_WAIT);
     assign debug = {dreq_ready, enable, state[3:0], ~xdcs, ~xcs};
+
+    function [7:0] selected_rom_byte;
+        input [17:0] addr;
+        begin
+            if (pitch_mode) begin
+                case (active_pitch_select)
+                    3'd0: selected_rom_byte = pitch0_rom[addr];
+                    3'd1: selected_rom_byte = pitch1_rom[addr];
+                    3'd2: selected_rom_byte = pitch2_rom[addr];
+                    3'd3: selected_rom_byte = pitch3_rom[addr];
+                    3'd4: selected_rom_byte = pitch4_rom[addr];
+                    3'd5: selected_rom_byte = pitch5_rom[addr];
+                    3'd6: selected_rom_byte = pitch6_rom[addr];
+                    3'd7: selected_rom_byte = pitch7_rom[addr];
+                    default: selected_rom_byte = pitch_rom[addr];
+                endcase
+            end else begin
+                selected_rom_byte = active_song[0] ? fade_rom[addr] : canon_rom[addr];
+            end
+        end
+    endfunction
 
     function [7:0] command_byte;
         input [3:0] cmd;
@@ -1963,9 +2006,10 @@ module vs1003b_mp3_rom_player (
         dreq_meta <= dreq;
         dreq_sync <= dreq_meta;
 
-        if (reset || !enable || active_song != song_select) begin
+        if (reset || !enable || active_song != song_select || (song_select == 2'd2 && active_pitch_select != pitch_select)) begin
             state <= ST_OFF;
             active_song <= song_select;
+            active_pitch_select <= pitch_select;
             xrst <= 1'b0;
             xcs <= 1'b1;
             xdcs <= 1'b1;
@@ -1987,6 +2031,7 @@ module vs1003b_mp3_rom_player (
                     mosi <= 1'b1;
                     wait_count <= 33'd0;
                     active_song <= song_select;
+                    active_pitch_select <= pitch_select;
                     mp3_addr <= 18'd0;
                     mp3_byte <= 8'h00;
                     flush_count <= 13'd0;
@@ -2057,7 +2102,7 @@ module vs1003b_mp3_rom_player (
                         state <= ST_FLUSH;
                     end else if (dreq_ready) begin
                         burst_count <= 6'd0;
-                        mp3_byte <= pitch_mode ? pitch_rom[mp3_addr] : (active_song[0] ? fade_rom[mp3_addr] : canon_rom[mp3_addr]);
+                        mp3_byte <= selected_rom_byte(mp3_addr);
                         state <= ST_PLAY_SEND;
                     end
                 end
@@ -2073,7 +2118,7 @@ module vs1003b_mp3_rom_player (
                         state <= ST_PLAY;
                     end else begin
                         burst_count <= burst_count + 6'd1;
-                        mp3_byte <= pitch_mode ? pitch_rom[mp3_addr] : (active_song[0] ? fade_rom[mp3_addr] : canon_rom[mp3_addr]);
+                        mp3_byte <= selected_rom_byte(mp3_addr);
                         state <= ST_PLAY_SEND;
                     end
                 end

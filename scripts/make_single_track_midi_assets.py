@@ -137,6 +137,18 @@ def write_note_table(path, title, bpm, notes):
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def write_pitch_test_table(path, pitch_tests):
+    lines = [
+        "# VS1003B pitch test switch table",
+        "",
+        "| SW5 SW4 SW3 | note | expected frequency |",
+        "| --- | --- | ---: |",
+    ]
+    for sel, note, freq in pitch_tests:
+        lines.append(f"| `{sel:03b}` | `{note}` | `{freq:.2f} Hz` |")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def q(seq, velocity=120):
     return [(n, 1.0, velocity) for n in seq]
 
@@ -232,12 +244,29 @@ def main():
         (None, 1.0, 0),
         ("A4", 8.0, 124),
     ]
+    pitch_tests = [
+        (0, "A3", 220.00),
+        (1, "C4", 261.63),
+        (2, "E4", 329.63),
+        (3, "A4", 440.00),
+        (4, "C5", 523.25),
+        (5, "E5", 659.25),
+        (6, "A5", 880.00),
+        (7, "C6", 1046.50),
+    ]
 
     assets = {
         "faded_main_melody": ("Faded main melody", 90, faded, 0),
         "canon_main_melody": ("Canon main melody", 96, canon, 0),
         "vs1003_pitch_calibration": ("VS1003B pitch calibration", 60, calibration, 0),
     }
+    for sel, note, freq in pitch_tests:
+        assets[f"vs1003_pitch_{sel}"] = (
+            f"VS1003B pitch {sel:03b} {note} {freq:.2f} Hz",
+            60,
+            [(note, 16.0, 124)],
+            0,
+        )
 
     report = []
     for stem, (title, bpm, notes, program) in assets.items():
@@ -248,6 +277,7 @@ def main():
         write_vh(OUT / f"{stem}.vh", stem, data)
         write_note_table(OUT / f"{stem}_notes.md", title, bpm, notes)
         report.append((stem, len(data), (len(data) + 3) // 4))
+    write_pitch_test_table(OUT / "vs1003_pitch_test_table.md", pitch_tests)
 
     (OUT / "README.md").write_text(
         "\n".join(
