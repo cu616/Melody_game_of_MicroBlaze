@@ -1,12 +1,14 @@
-# VS1003B pitch test switch table
+# VS1003B C major pitch test
 
-| SW5 SW4 SW3 | note | expected frequency |
-| --- | --- | ---: |
-| `000` | `A3` | `220.00 Hz` |
-| `001` | `C4` | `261.63 Hz` |
-| `010` | `E4` | `329.63 Hz` |
-| `011` | `A4` | `440.00 Hz` |
-| `100` | `C5` | `523.25 Hz` |
-| `101` | `E5` | `659.25 Hz` |
-| `110` | `A5` | `880.00 Hz` |
-| `111` | `C6` | `1046.50 Hz` |
+Calibration mode plays this C major scale continuously when `SW14=1` and `SW2=1`.
+
+| step | note | expected frequency |
+| ---: | --- | ---: |
+| 1 | `C4` | `261.63 Hz` |
+| 2 | `D4` | `293.66 Hz` |
+| 3 | `E4` | `329.63 Hz` |
+| 4 | `F4` | `349.23 Hz` |
+| 5 | `G4` | `392.00 Hz` |
+| 6 | `A4` | `440.00 Hz` |
+| 7 | `B4` | `493.88 Hz` |
+| 8 | `C5` | `523.25 Hz` |

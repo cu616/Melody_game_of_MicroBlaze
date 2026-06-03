@@ -2,6 +2,55 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 VS1003B：校音模式改为连续 C 大调音阶
+
+用户要求：
+- 将上一次“拨码选择单个标准音”的方案改成一次生成并播放连续的 C 大调音阶。
+
+本次修改：
+- `scripts/make_single_track_midi_assets.py`
+  - 将 `vs1003_pitch_calibration` 改为连续音阶 `C4 D4 E4 F4 G4 A4 B4 C5`。
+  - BPM 改为 `72`，每个音约 1 拍，音符之间加入很短休止，便于调音器/频谱 App 分辨。
+  - 重新生成 `music/midi/vs1003_pitch_calibration.mid`、`.mem`、`_1024.mem`、`.COE`、`.vh`、`_notes.md`。
+  - `vs1003_pitch_calibration` 当前长度为 `162 bytes`，RTL 最后地址为 `18'd161`。
+- `rhythm_video_audio.v`
+  - VS1003B 校音模式固定读取 `vs1003_pitch_calibration_1024.mem`。
+  - 移除运行路径中 `SW5..SW3` 作为 `pitch_select` 选择八个单音的逻辑。
+  - 校音模式不再因 `SW5..SW3` 改变而重新初始化；`SW5..SW3` 继续只用于普通音游流速。
+- `README.md` 与 `文档/按键与拨码开关作用分析.md`
+  - 更新说明为：`SW14=1` 且 `SW2=1` 时连续循环播放 C 大调校音音阶。
+
+最新校音方法：
+- 打开 `SW14=1`、`SW2=1`。
+- 不需要看 VGA，也不需要调 `SW5..SW3`。
+- PHONE 输出应循环播放：
+
+| 顺序 | 音名 | 理论频率 |
+| ---: | --- | ---: |
+| 1 | `C4` | `261.63 Hz` |
+| 2 | `D4` | `293.66 Hz` |
+| 3 | `E4` | `329.63 Hz` |
+| 4 | `F4` | `349.23 Hz` |
+| 5 | `G4` | `392.00 Hz` |
+| 6 | `A4` | `440.00 Hz` |
+| 7 | `B4` | `493.88 Hz` |
+| 8 | `C5` | `523.25 Hz` |
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.345 ns
+Route TNS = 0.000 ns
+SHA256 = EEC5D18D8D6028355151619F8D0BCC6EAD5774875439EDA47854461B23F9B694
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 README 与 VS1003B 多输入口校音模式
 
 用户要求：

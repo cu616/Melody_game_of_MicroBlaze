@@ -137,15 +137,17 @@ def write_note_table(path, title, bpm, notes):
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def write_pitch_test_table(path, pitch_tests):
+def write_pitch_scale_table(path, scale_notes):
     lines = [
-        "# VS1003B pitch test switch table",
+        "# VS1003B C major pitch test",
         "",
-        "| SW5 SW4 SW3 | note | expected frequency |",
-        "| --- | --- | ---: |",
+        "Calibration mode plays this C major scale continuously when `SW14=1` and `SW2=1`.",
+        "",
+        "| step | note | expected frequency |",
+        "| ---: | --- | ---: |",
     ]
-    for sel, note, freq in pitch_tests:
-        lines.append(f"| `{sel:03b}` | `{note}` | `{freq:.2f} Hz` |")
+    for idx, (note, freq) in enumerate(scale_notes, 1):
+        lines.append(f"| {idx} | `{note}` | `{freq:.2f} Hz` |")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -233,40 +235,27 @@ def main():
     canon += q(["A4", "B4", "C#5", "D5", "C#5", "B4", "A4", "G4"], 120)
     canon += q(["F#4", "E4", "D4", "A3", "B3", "C#4", "D4", None], 118)
 
-    calibration = [
-        ("A4", 4.0, 124),   # 440.00 Hz
-        (None, 1.0, 0),
-        ("C5", 4.0, 124),   # 523.25 Hz
-        (None, 1.0, 0),
-        ("E5", 4.0, 124),   # 659.25 Hz
-        (None, 1.0, 0),
-        ("A5", 4.0, 124),   # 880.00 Hz
-        (None, 1.0, 0),
-        ("A4", 8.0, 124),
+    c_major_scale = [
+        ("C4", 261.63),
+        ("D4", 293.66),
+        ("E4", 329.63),
+        ("F4", 349.23),
+        ("G4", 392.00),
+        ("A4", 440.00),
+        ("B4", 493.88),
+        ("C5", 523.25),
     ]
-    pitch_tests = [
-        (0, "A3", 220.00),
-        (1, "C4", 261.63),
-        (2, "E4", 329.63),
-        (3, "A4", 440.00),
-        (4, "C5", 523.25),
-        (5, "E5", 659.25),
-        (6, "A5", 880.00),
-        (7, "C6", 1046.50),
-    ]
+    calibration = []
+    for note, _freq in c_major_scale:
+        calibration.append((note, 1.0, 118))
+        calibration.append((None, 0.08, 0))
+    calibration.append(("C5", 2.0, 118))
 
     assets = {
         "faded_main_melody": ("Faded main melody", 90, faded, 0),
         "canon_main_melody": ("Canon main melody", 96, canon, 0),
-        "vs1003_pitch_calibration": ("VS1003B pitch calibration", 60, calibration, 0),
+        "vs1003_pitch_calibration": ("VS1003B C major pitch calibration", 72, calibration, 0),
     }
-    for sel, note, freq in pitch_tests:
-        assets[f"vs1003_pitch_{sel}"] = (
-            f"VS1003B pitch {sel:03b} {note} {freq:.2f} Hz",
-            60,
-            [(note, 16.0, 124)],
-            0,
-        )
 
     report = []
     for stem, (title, bpm, notes, program) in assets.items():
@@ -277,7 +266,7 @@ def main():
         write_vh(OUT / f"{stem}.vh", stem, data)
         write_note_table(OUT / f"{stem}_notes.md", title, bpm, notes)
         report.append((stem, len(data), (len(data) + 3) // 4))
-    write_pitch_test_table(OUT / "vs1003_pitch_test_table.md", pitch_tests)
+    write_pitch_scale_table(OUT / "vs1003_pitch_test_table.md", c_major_scale)
 
     (OUT / "README.md").write_text(
         "\n".join(

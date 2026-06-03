@@ -7,14 +7,6 @@ single-track Standard MIDI bytes are packed into 32-bit hex COE words for ROM in
 | --- | ---: | ---: | --- |
 | `faded_main_melody` | 740 | 185 | default selected VS1003B demo |
 | `canon_main_melody` | 345 | 87 | backup |
-| `vs1003_pitch_calibration` | 122 | 31 | backup |
-| `vs1003_pitch_0` | 87 | 22 | backup |
-| `vs1003_pitch_1` | 87 | 22 | backup |
-| `vs1003_pitch_2` | 87 | 22 | backup |
-| `vs1003_pitch_3` | 87 | 22 | backup |
-| `vs1003_pitch_4` | 87 | 22 | backup |
-| `vs1003_pitch_5` | 87 | 22 | backup |
-| `vs1003_pitch_6` | 87 | 22 | backup |
-| `vs1003_pitch_7` | 88 | 22 | backup |
+| `vs1003_pitch_calibration` | 162 | 41 | backup |
 
 The default selected file is `faded_main_melody`, because it is short, recognizable, and much smaller than an embedded MP3 clip.
