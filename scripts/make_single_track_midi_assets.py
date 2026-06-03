@@ -57,6 +57,102 @@ def note_name_to_midi(name):
     return (octv + 1) * 12 + pitch_names[key]
 
 
+def midi_to_note_name(pitch):
+    names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+    return f"{names[pitch % 12]}{pitch // 12 - 1}"
+
+
+def read_vlq(data, index):
+    value = 0
+    while True:
+        byte = data[index]
+        index += 1
+        value = (value << 7) | (byte & 0x7F)
+        if not (byte & 0x80):
+            return value, index
+
+
+def extract_midi_track_notes(path, track_index, start_beat, end_beat, quant=0.125, velocity=120):
+    data = path.read_bytes()
+    pos = 0
+    if data[pos : pos + 4] != b"MThd":
+        raise ValueError(f"{path}: not a MIDI file")
+    pos += 4
+    header_len = int.from_bytes(data[pos : pos + 4], "big")
+    pos += 4
+    track_count = int.from_bytes(data[pos + 2 : pos + 4], "big")
+    division = int.from_bytes(data[pos + 4 : pos + 6], "big")
+    pos += header_len
+    if track_index >= track_count:
+        raise ValueError(f"{path}: track {track_index} does not exist")
+
+    selected_track = None
+    for idx in range(track_count):
+        if data[pos : pos + 4] != b"MTrk":
+            raise ValueError(f"{path}: bad track header")
+        pos += 4
+        track_len = int.from_bytes(data[pos : pos + 4], "big")
+        pos += 4
+        track = data[pos : pos + track_len]
+        pos += track_len
+        if idx == track_index:
+            selected_track = track
+
+    tick = 0
+    index = 0
+    running = None
+    active = {}
+    notes = []
+    while index < len(selected_track):
+        delta, index = read_vlq(selected_track, index)
+        tick += delta
+        status = selected_track[index]
+        if status < 0x80:
+            status = running
+        else:
+            index += 1
+            if status < 0xF0:
+                running = status
+        if status == 0xFF:
+            _kind = selected_track[index]
+            index += 1
+            length, index = read_vlq(selected_track, index)
+            index += length
+        elif status in (0xF0, 0xF7):
+            length, index = read_vlq(selected_track, index)
+            index += length
+        else:
+            command = status & 0xF0
+            channel = status & 0x0F
+            if command in (0x80, 0x90, 0xA0, 0xB0, 0xE0):
+                note = selected_track[index]
+                vel = selected_track[index + 1]
+                index += 2
+                if command == 0x90 and vel > 0:
+                    active[(channel, note)] = tick
+                elif command in (0x80, 0x90):
+                    start_tick = active.pop((channel, note), None)
+                    if start_tick is not None:
+                        start = start_tick / division
+                        end = tick / division
+                        if start_beat <= start < end_beat:
+                            notes.append((start, end, note))
+            elif command in (0xC0, 0xD0):
+                index += 1
+
+    notes.sort()
+    result = []
+    cursor = start_beat
+    for start, end, note in notes:
+        q_start = round((start - start_beat) / quant) * quant + start_beat
+        q_end = max(q_start + quant, round((end - start_beat) / quant) * quant + start_beat)
+        if q_start > cursor:
+            result.append((None, q_start - cursor, 0))
+        result.append((midi_to_note_name(note), q_end - q_start, velocity))
+        cursor = q_end
+    return result
+
+
 def build_midi(path, title, bpm, notes, program=80):
     track = bytearray()
     tempo = int(60_000_000 / bpm)
@@ -224,45 +320,16 @@ def main():
     )
     faded = faded_intro + faded_chorus
 
-    # Canon in D: compact melody extracted from the Mutopia Canon MIDI, using
-    # the lively high section around beats 48-64 and keeping only one line.
-    canon = melody(
-        [
-            ("D5", 0.5),
-            ("C#5", 0.5),
-            ("D5", 0.5),
-            ("D4", 0.5),
-            ("C#4", 0.5),
-            ("A4", 0.5),
-            ("E4", 0.5),
-            ("F#4", 0.5),
-            ("D4", 0.5),
-            ("D5", 0.5),
-            ("C#5", 0.5),
-            ("B4", 0.5),
-            ("C#5", 0.5),
-            ("F#4", 0.5),
-            ("A4", 0.5),
-            ("B4", 0.5),
-            ("G4", 0.5),
-            ("F#4", 0.5),
-            ("E4", 0.5),
-            ("G4", 0.5),
-            ("F#4", 0.5),
-            ("E4", 0.5),
-            ("D4", 0.5),
-            ("C#5", 0.5),
-            ("B4", 0.5),
-            ("A4", 0.5),
-            ("G4", 0.5),
-            ("F#4", 0.5),
-            ("E4", 0.5),
-            ("G4", 0.5),
-            ("F#4", 0.5),
-            ("E4", 0.5),
-            ("D4", 1.0),
-        ],
-        120,
+    # Canon in D: complete fast variation from the mfiles original MIDI.
+    # Track 1 is Violin 1; beats 72-88 contain the full sixteenth-note
+    # allegro-like variation before the delayed canon entries repeat it.
+    canon = extract_midi_track_notes(
+        ROOT / "music" / "midi_import" / "mfiles_pachelbel_canon_in_d.mid",
+        track_index=1,
+        start_beat=72,
+        end_beat=88,
+        quant=0.125,
+        velocity=120,
     )
 
     c_major_scale = [

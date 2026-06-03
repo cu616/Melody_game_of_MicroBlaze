@@ -2,6 +2,45 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 Canon：改为完整十六分音符快板变奏
+
+用户反馈：
+- 需要 Canon 的十六分音符变奏/快板部分。
+- 要截取完整，不要只截普通欢快段。
+
+本次修改：
+- 发现 Mutopia 的 `mutopia_canon_in_d.mid` 只有简化旋律，没有真正完整的 0.25/0.125 拍快板变奏。
+- 下载 mfiles 的原版 Canon MIDI：
+  - `music/midi_import/mfiles_pachelbel_canon_in_d.mid`
+- 在 `scripts/make_single_track_midi_assets.py` 中新增轻量 MIDI 解析器：
+  - `extract_midi_track_notes(...)`
+  - 可按 track 与 beat 区间截取旋律，并量化为小内存单轨 MIDI。
+- Canon 当前截取：
+  - 来源：mfiles MIDI 的 `Violin 1`
+  - 区间：beat `72` 到 `88`
+  - 内容：完整一轮十六分/快板变奏，保留单轨单音，不叠加 Violin 2/3 的延迟进入。
+  - 音符数：`112`
+  - 最短时值：`0.125 beat`
+- 重新生成 Canon MIDI/ROM：
+  - `canon_main_melody: 961 bytes, 241 32-bit words`
+- `rhythm_video_audio.v`
+  - `CANON_LAST` 更新为 `18'd960`。
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.583 ns
+Route TNS = 0.000 ns
+SHA256 = 783E14FA8A5260C707373DC298EF0677B7EF999D1F9A8863BA90226C038DE425
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 Canon：从 Mutopia MIDI 提取欢快高潮主旋律
 
 用户反馈：
