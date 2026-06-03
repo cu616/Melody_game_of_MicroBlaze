@@ -2,6 +2,46 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-03 Canon：从 Mutopia MIDI 提取欢快高潮主旋律
+
+用户反馈：
+- 手写 Canon 仍有点不像。
+- 希望能由 AI 直接提取卡农主旋律 MIDI，或从网上找合适 MIDI，而不是继续手动在 FL Studio 中删音符。
+
+本次修改：
+- 下载公开 MIDI 来源：
+  - `music/midi_import/mutopia_canon_in_d.mid`
+  - 来源：Mutopia Project 的 Pachelbel Canon in D MIDI。
+- 自动解析该 MIDI：
+  - MIDI 格式 1，2 个 track。
+  - 有效音乐轨 1 条，共 `138` 个音符。
+  - 音域约 `F#3` 到 `F#5`。
+- 选择更像“欢快高潮”的片段：
+  - 取 beat `48.0` 到 `64.0` 左右的快速 1/8 音符段。
+  - 保留单轨单音旋律，避免和弦/伴奏占用 ROM。
+- `scripts/make_single_track_midi_assets.py`
+  - Canon 改为这段提取旋律。
+  - 保留 VS1003B 全局 `-1` 半音补偿。
+- 重新生成 Canon MIDI/ROM：
+  - `canon_main_melody: 362 bytes, 91 32-bit words`
+- `rhythm_video_audio.v`
+  - `CANON_LAST` 更新为 `18'd361`。
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.348 ns
+Route TNS = 0.000 ns
+SHA256 = 28AC2EAEF145210195EC633112F960F5C27AB01BE9EACF50A84E2A1ABDF4C0D3
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 Faded/Canon：改为手写小内存主旋律 MIDI
 
 用户要求：
