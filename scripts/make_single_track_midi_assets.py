@@ -350,7 +350,7 @@ def main():
 
     assets = {
         "faded_main_melody": ("Faded main melody", 90, faded, 0),
-        "canon_main_melody": ("Canon main melody", 96, canon, 0),
+        "canon_main_melody": ("Canon main melody", 72, canon, 0),
         "vs1003_pitch_calibration": ("VS1003B C major pitch calibration", 72, calibration, 0),
     }
 

@@ -2,6 +2,31 @@
 
 本文用于记录本工程每次需求、修改内容、验证结果和后续注意事项，方便其他 AI 或同学继续协作。
 
+### 2026-06-04 Canon：十六分变奏降速
+
+用户反馈：
+- Canon 十六分变奏节奏太快。
+
+本次修改：
+- 保留完整十六分/快板变奏音符，不删音、不截短。
+- 仅将 `canon_main_melody` 的 BPM 从 `96` 降为 `72`。
+- MIDI 长度仍为 `961 bytes`，因此 `rhythm_video_audio.v` 中 `CANON_LAST=18'd960` 不需要修改。
+
+验证结果：
+```text
+Vivado 2018.3 batch build passed
+VIVADO_BUILD_OK
+Bitgen Completed Successfully
+Route WNS ~= 1.641 ns
+Route TNS = 0.000 ns
+SHA256 = 9B8050C43668CCDED135F4A7E75FEBE457468FD8B1F7985221C8A7191A1EE9E1
+```
+
+bitstream 已同步覆盖：
+- `Mini_IO.runs/impl_1/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/design_mb_wrapper.bit`
+- `Mini_IO.sdk/design_mb_wrapper_hw_platform_0/download.bit`
+
 ### 2026-06-03 Canon：改为完整十六分音符快板变奏
 
 用户反馈：

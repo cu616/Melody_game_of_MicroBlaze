@@ -1,6 +1,6 @@
 # Canon main melody
 
-BPM: 96
+BPM: 72
 
 | index | note | beats | velocity |
 | ---: | --- | ---: | ---: |
