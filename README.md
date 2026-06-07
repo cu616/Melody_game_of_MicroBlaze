@@ -13,7 +13,7 @@
 - Nexys4 DDR + Vivado 2018.3 + SDK/MicroBlaze 工程。
 - VGA 三轨音游界面，左中右轨道对应 `BTNL / BTNC / BTNR`。
 - J8 板载 PWM 音频作为备用电子音路径。
-- VS1003B 模块通过 JA PMOD 接口播放内置 MIDI byte-stream。
+- VS1003B 模块通过 JA PMOD 接口播放 MIDI/MP3 等可解码 byte-stream。
 - 内置 Canon / Faded 课堂演示 MIDI。
 - 支持 VS1003B 标准音校准模式，用手机调音器判断是模块整体走音还是 MIDI 乐谱不准。
 
@@ -70,6 +70,8 @@ XDCS XCS DREQ SCLK MOSI MISO XRST GND 5V
 ## MicroBlaze 迁移方向
 
 当前工程已经是 MicroBlaze SoC + 自定义 RTL 外设的结构，但歌曲 ROM、部分谱面、判定和 VS1003B 播放状态机仍有不少内容写在 Verilog 中。只要这些 Verilog/ROM 初始化内容改变，就通常需要重新综合、实现和生成 bitstream。
+
+VS1003B 的核心作用是解码已有音频/压缩音频数据，而不是让 FPGA 长期手搓音频波形。当前内置短 MIDI 主要用于验证接线、初始化、音量、音高补偿和 SDI 发送链路。后续播放 20-30 秒或更长音乐时，重点应转向参考例程式的数据存储和分块播放：准备 VS1003B 可解码的 MIDI/MP3 数据，MicroBlaze 或硬件播放器按 `DREQ` 将数据流持续送入模块。
 
 后续建议把经常改的内容迁到 MicroBlaze 软件侧：
 

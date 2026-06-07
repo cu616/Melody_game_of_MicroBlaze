@@ -84,6 +84,8 @@ VGA 硬件按像素时钟读取 framebuffer 输出
 
 VS1003B 应从 RTL 播放状态机迁移为 MicroBlaze 软件驱动。硬件连接建议如下：
 
+需要明确的是，VS1003B 的价值在于播放已有音频/压缩音频文件。J8 PWM 或手写音符只能作为备用提示音、校音或早期调试方式，不应成为正式音乐播放主线。正式路线应学习参考例程：把 MIDI/MP3 等 VS1003B 可识别数据存入 ROM、BRAM、Flash、SD 卡或软件数组，再按 `DREQ` 分块送入 VS1003B。
+
 ```text
 AXI Quad SPI:
   SCLK -> VS1003B SCLK
@@ -108,6 +110,8 @@ AXI GPIO input:
 5. 播放时拉低 `XDCS`。
 6. 每次 `DREQ=1` 时发送最多 32 字节 MP3 数据。
 7. 音频数据结束后发送若干 zero/end fill bytes。
+
+对于 MIDI 文件也采用同样的 SDI byte-stream 发送方式。VS1003B 会根据文件头识别数据格式，因此软件层不应把 MIDI/MP3 当成“音符波形”重新合成，而应把它们当作待解码的连续字节流。
 
 伪代码：
 
@@ -137,7 +141,26 @@ void vs1003_play_loop(void) {
 }
 ```
 
-这样做的好处是：更换 MP3/谱面时不一定需要重新生成 bitstream，只需要替换软件或存储数据。
+这样做的好处是：更换 MP3/MIDI/谱面时不一定需要重新生成 bitstream，只需要替换软件或存储数据。
+
+### 大文件播放实施路线
+
+参考例程的思路是“数据文件 + VS1003B 流式发送”，而不是 FPGA 内部实时合成完整音乐。迁移到 MicroBlaze 后，建议按容量分阶段实现：
+
+1. 小文件阶段：把单轨 MIDI 或短 MP3 片段放入 `const uint8_t song[]`，MicroBlaze 从数组中每次取 32 字节发送。
+2. 中等文件阶段：把数据放入 BRAM 或独立数据段，仍由 MicroBlaze 按 `DREQ` 拉取发送。
+3. 大文件阶段：增加 SD 卡或 SPI Flash 文件读取，MicroBlaze 用小缓冲区循环读取，例如 512 字节缓存，每次 `DREQ=1` 发送 32 字节。
+4. 音游同步：播放开始时记录 `game_time_ms=0`，谱面事件按同一软件 Timer 推进，音频发送循环中不能阻塞 Timer 和按键中断。
+
+大文件播放的关键不是音频合成算法，而是：
+
+```text
+文件来源稳定
+缓冲区不断流
+DREQ 流控正确
+SPI 时序可靠
+游戏 Timer 不被播放循环卡住
+```
 
 ## 按键中断方案
 
