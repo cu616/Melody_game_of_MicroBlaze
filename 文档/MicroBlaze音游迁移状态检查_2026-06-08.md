@@ -74,3 +74,14 @@ MicroBlaze 已经承担 VS1003B 播放、曲目选择、音量、暂停、基础
 4. 最终弱化或关闭 RTL `rhythm_game_core`，让 MicroBlaze 成为音游逻辑主控。
 
 第一阶段会修改硬件接口，因此需要重新综合/实现并生成 bitstream。
+
+## 2026-06-08 第一阶段进展
+
+已完成 MicroBlaze 到 VGA UI 的第一条状态通路：
+
+- 顶层 `design_mb_wrapper.v` 将 MicroBlaze 的 LED/RGB/七段数码管输出同步送入 `rhythm_video_audio.v`。
+- MicroBlaze 在 GPIO0 channel 2 高位编码软件侧游戏状态、曲目、判定和音量；低 5 位继续作为 VS1003B bit-bang 总线。
+- VGA 在 `SW2=1` 时优先使用 MicroBlaze 状态显示右侧 UI 的分数、判定、音量、暂停/结束和曲目选择状态。
+- bitstream 已成功生成并下载。
+
+这仍然不是完全 MicroBlaze 化，因为轨道音符滚动和旧的 RTL `rhythm_game_core` 仍然存在。它属于“VGA/UI 状态开始由 MicroBlaze 驱动”的第一阶段。

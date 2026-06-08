@@ -5,6 +5,11 @@ module rhythm_video_audio (
     input wire reset,
     input wire [4:0] buttons,
     input wire [15:0] switches,
+    input wire mb_mode,
+    input wire [15:0] mb_led_status,
+    input wire [5:0] mb_rgb_status,
+    input wire [7:0] mb_seg_status,
+    input wire [7:0] mb_an_status,
     output reg [3:0] vga_r,
     output reg [3:0] vga_g,
     output reg [3:0] vga_b,
@@ -98,6 +103,10 @@ module rhythm_video_audio (
     reg game_button_pixel = 1'b0;
     reg [5:0] game_row = 6'd0;
     reg [2:0] game_lane = 3'd0;
+    reg [3:0] mb_display_digit0 = 4'd0;
+    reg [3:0] mb_display_digit1 = 4'd0;
+    reg [3:0] mb_display_digit2 = 4'd0;
+    reg [3:0] mb_display_digit3 = 4'd0;
 
     wire pix_tick = (pix_div == 2'b11);
     wire reset_active = ~reset;
@@ -129,6 +138,27 @@ module rhythm_video_audio (
                                          (game_judgement == 4'd1) ? 6'd9 :
                                          (game_judgement == 4'd0) ? 6'd10 : 6'd29;
     wire [19:0] game_score_bcd = bin16_to_bcd5(game_score);
+    wire [1:0] mb_game_state = mb_led_status[15:14];
+    wire [1:0] mb_song_select = mb_led_status[13:12];
+    wire [1:0] mb_rating_code = mb_led_status[11:10];
+    wire [3:0] mb_volume_level = mb_led_status[9:6];
+    wire [3:0] ui_judgement = mb_mode ? ((mb_rating_code == 2'd1) ? 4'd2 :
+                                         (mb_rating_code == 2'd2) ? 4'd1 :
+                                         (mb_rating_code == 2'd3) ? 4'd0 : 4'd7) :
+                                         game_judgement;
+    wire ui_paused = mb_mode ? (mb_game_state == 2'd2) : game_paused;
+    wire ui_finished = mb_mode ? (mb_game_state == 2'd3) : game_finished;
+    wire ui_audio_enabled = mb_mode ? (mb_game_state != 2'd0) : audio_enabled;
+    wire [1:0] ui_song_select = mb_mode ? mb_song_select : game_song;
+    wire [19:0] ui_score_bcd = mb_mode ? {4'd0, mb_display_digit3, mb_display_digit2,
+                                          mb_display_digit1, mb_display_digit0} :
+                                          game_score_bcd;
+    wire [5:0] ui_volume_text_id = mb_mode ? (6'd32 + {2'b00, mb_volume_level}) : volume_text_id;
+    wire [5:0] ui_judgement_text_id = ui_paused ? 6'd44 :
+                                       ui_finished ? 6'd30 :
+                                       (ui_judgement == 4'd2) ? 6'd8 :
+                                       (ui_judgement == 4'd1) ? 6'd9 :
+                                       (ui_judgement == 4'd0) ? 6'd10 : 6'd29;
     // Nexys4 DDR board interface maps BTNC/BTNU/BTNL/BTNR/BTND to [0]/[1]/[2]/[3]/[4].
     // Game lanes use left/center/right = P17/N17/M17.
     wire [2:0] lane_button_raw = {buttons[3], buttons[0], buttons[2]};
@@ -241,7 +271,7 @@ module rhythm_video_audio (
 
     album_art_track_rom album_art_track_i (
         .clk(clk100),
-        .song_select(game_song),
+        .song_select(ui_song_select),
         .pixel_x(h_count),
         .pixel_y(v_count),
         .valid(track_art_area),
@@ -704,6 +734,25 @@ module rhythm_video_audio (
                 shift = shift << 1;
             end
             bin16_to_bcd5 = shift[35:16];
+        end
+    endfunction
+
+    function [3:0] sevenseg_to_nibble;
+        input [7:0] seg;
+        begin
+            case (seg)
+                8'hC0: sevenseg_to_nibble = 4'd0;
+                8'hF9: sevenseg_to_nibble = 4'd1;
+                8'hA4: sevenseg_to_nibble = 4'd2;
+                8'hB0: sevenseg_to_nibble = 4'd3;
+                8'h99: sevenseg_to_nibble = 4'd4;
+                8'h92: sevenseg_to_nibble = 4'd5;
+                8'h82: sevenseg_to_nibble = 4'd6;
+                8'hF8: sevenseg_to_nibble = 4'd7;
+                8'h80: sevenseg_to_nibble = 4'd8;
+                8'h90: sevenseg_to_nibble = 4'd9;
+                default: sevenseg_to_nibble = 4'd0;
+            endcase
         end
     endfunction
 
@@ -1440,6 +1489,19 @@ module rhythm_video_audio (
                     (v_count < V_VISIBLE + V_FRONT + V_SYNC));
     end
 
+    always @(posedge clk100) begin
+        if (mb_mode) begin
+            case (mb_an_status)
+                8'b1110_1111: mb_display_digit3 <= sevenseg_to_nibble(mb_seg_status);
+                8'b1101_1111: mb_display_digit2 <= sevenseg_to_nibble(mb_seg_status);
+                8'b1011_1111: mb_display_digit1 <= sevenseg_to_nibble(mb_seg_status);
+                8'b0111_1111: mb_display_digit0 <= sevenseg_to_nibble(mb_seg_status);
+                default: begin
+                end
+            endcase
+        end
+    end
+
     always @(*) begin
         if (vs1003_demo_enabled) begin
             diag_led = {4'ha, switches[2], vs1003_player_enabled, vs_dreq, vs_xrst,
@@ -1452,10 +1514,10 @@ module rhythm_video_audio (
             diag_led[11:10] = game_song;
             diag_led[15:12] = game_judgement;
         end
-        if (!audio_enabled || game_finished) begin
+        if (!ui_audio_enabled || ui_finished) begin
             diag_rgb = 6'b111_111; // ready/finish: white
         end else begin
-            case (game_judgement)
+            case (ui_judgement)
                 4'd2: diag_rgb = 6'b010_010; // good: green
                 4'd1: diag_rgb = 6'b100_100; // bad: blue on this board wiring
                 4'd0: diag_rgb = 6'b001_001; // miss: red on this board wiring
@@ -1490,11 +1552,11 @@ module rhythm_video_audio (
                         ui_text2_pixel(5'd15, h_count, v_count, 10'd480, 10'd94) || // BPM
                         ui_text2_pixel(5'd16, h_count, v_count, 10'd496, 10'd128) || // 90
                         ui_text2_pixel(5'd31, h_count, v_count, 10'd548, 10'd94) || // VOL
-                        ui_text2_pixel(volume_text_id, h_count, v_count, 10'd588, 10'd128) ||
+                        ui_text2_pixel(ui_volume_text_id, h_count, v_count, 10'd588, 10'd128) ||
                         ui_text2_pixel(5'd25, h_count, v_count, 10'd480, 10'd174) || // SCORE
-                        ui_bcd5_pixel(game_score_bcd, h_count, v_count, 10'd496, 10'd206) ||
+                        ui_bcd5_pixel(ui_score_bcd, h_count, v_count, 10'd496, 10'd206) ||
                         ui_text2_pixel(5'd7, h_count, v_count, 10'd480, 10'd252) || // JUDGE
-                        ui_text2_pixel(game_judgement_text_id, h_count, v_count, 10'd496, 10'd286) ||
+                        ui_text2_pixel(ui_judgement_text_id, h_count, v_count, 10'd496, 10'd286) ||
                         ui_text2_pixel(6'd44, h_count, v_count, 10'd480, 10'd330) || // PAUSE
                         ui_text2_pixel(6'd45, h_count, v_count, 10'd548, 10'd330) || // SW15
                         ui_text2_pixel(5'd3, h_count, v_count, 10'd480, 10'd360) || // KEYS
@@ -1521,15 +1583,17 @@ module rhythm_video_audio (
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd382 && v_count < 10'd470) &&
                         (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd385 || v_count >= 10'd467));
         ui_line_pixel = (h_count == 10'd176 || h_count == 10'd463);
-        ui_selected_pixel = (canon_mode && h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd52 && v_count < 10'd84) ||
-                            (edm_mode && h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd96 && v_count < 10'd128) ||
+        ui_selected_pixel = (((mb_mode && ui_song_select == 2'd0) || (!mb_mode && canon_mode)) &&
+                             h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd52 && v_count < 10'd84) ||
+                            (((mb_mode && ui_song_select != 2'd0) || (!mb_mode && edm_mode)) &&
+                             h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd96 && v_count < 10'd128) ||
                             (vs1003_demo_enabled && h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd316 && v_count < 10'd350);
 
         if (!active_video) begin
             vga_r = 4'h0;
             vga_g = 4'h0;
             vga_b = 4'h0;
-        end else if (!audio_enabled) begin
+        end else if (!ui_audio_enabled) begin
             if (border) begin
                 vga_r = 4'h8;
                 vga_g = 4'h8;
@@ -1583,7 +1647,7 @@ module rhythm_video_audio (
             if (ui_text_pixel) begin
                 vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf;
             end else if (v_count >= 10'd284 && v_count < 10'd304 && h_count >= 10'd486 && h_count < 10'd490) begin
-                case (game_judgement)
+                case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
                     4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
@@ -1624,14 +1688,14 @@ module rhythm_video_audio (
             end else if (game_hold_pixel) begin
                 vga_r = 4'he; vga_g = 4'he; vga_b = 4'he;
             end else if (game_button_pixel) begin
-                case (game_judgement)
+                case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
                     4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
                     default: begin vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf; end
                 endcase
             end else if (v_count >= 10'd358 && v_count < 10'd362) begin
-                case (game_judgement)
+                case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
                     4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
@@ -1682,7 +1746,7 @@ module rhythm_video_audio (
                 vga_g = 4'he;
                 vga_b = 4'he;
             end else if (game_button_pixel) begin
-                case (game_judgement)
+                case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
                     4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
@@ -1697,7 +1761,7 @@ module rhythm_video_audio (
                      h_count >= 10'd200 && h_count < 10'd440) begin
             game_lane = (h_count - 10'd200) / 10'd80;
             if (game_buttons[game_lane]) begin
-                case (game_judgement)
+                case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
                     4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end

@@ -43,6 +43,14 @@
 #define VS_SCLK_GPIO_MASK        0x0010U
 #define VS_GPIO_IDLE             (VS_XCS_GPIO_MASK | VS_XDCS_GPIO_MASK | VS_XRST_GPIO_MASK)
 #define VS_GPIO_BUS_MASK         (VS_XCS_GPIO_MASK | VS_XDCS_GPIO_MASK | VS_XRST_GPIO_MASK | VS_MOSI_GPIO_MASK | VS_SCLK_GPIO_MASK)
+#define MB_VGA_STATE_WAIT        0U
+#define MB_VGA_STATE_PLAY        1U
+#define MB_VGA_STATE_PAUSE       2U
+#define MB_VGA_STATE_DONE        3U
+#define MB_VGA_RATING_NONE       0U
+#define MB_VGA_RATING_GOOD       1U
+#define MB_VGA_RATING_BAD        2U
+#define MB_VGA_RATING_MISS       3U
 #define VS_LED_INIT              0x8000U
 #define VS_LED_DREQ_TIMEOUT      0x4000U
 #define VS_LED_SCI_DONE          0x2000U
@@ -81,6 +89,10 @@
 static u32 VsGpioState = VS_GPIO_IDLE;
 static u32 VsAudioPos = 0U;
 static u8 VsAudioArmed = 0U;
+static u8 MbVgaStateCode = MB_VGA_STATE_WAIT;
+static u8 MbVgaSongCode = 1U;
+static u8 MbVgaRatingCode = MB_VGA_RATING_NONE;
+static u8 MbVgaVolumeCode = 10U;
 static const u8 *VsAudioData = Vs1003bFadedMidi;
 static u32 VsAudioLen = VS1003B_FADED_MIDI_LEN;
 static const u8 VsVolumeTable[] = {
@@ -96,9 +108,18 @@ static void BusyDelay(u32 cycles)
     }
 }
 
+static u32 MbVgaStatusBits(void)
+{
+    return ((u32)(MbVgaStateCode & 0x03U) << 14) |
+           ((u32)(MbVgaSongCode & 0x03U) << 12) |
+           ((u32)(MbVgaRatingCode & 0x03U) << 10) |
+           ((u32)(MbVgaVolumeCode & 0x0FU) << 6) |
+           ((VsAudioArmed != 0U) ? 0x0020U : 0x0000U);
+}
+
 static void VsGpioWrite(u32 value)
 {
-    VsGpioState = value;
+    VsGpioState = (value & VS_GPIO_BUS_MASK) | MbVgaStatusBits();
     Xil_Out32(GPIO_SW_LED_BASEADDR + XGPIO_DATA2_OFFSET, VsGpioState);
 }
 
@@ -231,6 +252,7 @@ static void VsAdjustVolume(int delta)
             --VsVolumeIndex;
         }
     }
+    MbVgaVolumeCode = VsVolumeIndex;
     VsApplyVolume();
 }
 
@@ -542,6 +564,15 @@ static int TimerExpired(void)
 static void SetRating(u8 rating)
 {
     LastRating = rating;
+    if (rating == 'A') {
+        MbVgaRatingCode = MB_VGA_RATING_GOOD;
+    } else if (rating == 'B' || rating == 'C') {
+        MbVgaRatingCode = MB_VGA_RATING_BAD;
+    } else if (rating == 'M') {
+        MbVgaRatingCode = MB_VGA_RATING_MISS;
+    } else {
+        MbVgaRatingCode = MB_VGA_RATING_NONE;
+    }
     Display[0] = 0xFF;
     Display[1] = 0xFF;
     Display[2] = 0xFF;
@@ -559,6 +590,9 @@ static void SetRating(u8 rating)
         Display[2] = 0x92;
         Display[3] = 0x92;
     }
+#if VS1003B_MB_STREAM_TEST
+    VsGpioWrite(VsGpioState);
+#endif
 }
 
 static void UpdateScoreDisplay(void)
@@ -591,6 +625,10 @@ static void StartGame(void)
     } else {
         SongIndex = 1U;
     }
+    MbVgaSongCode = SongIndex;
+    MbVgaStateCode = MB_VGA_STATE_PLAY;
+    MbVgaRatingCode = MB_VGA_RATING_NONE;
+    MbVgaVolumeCode = VsVolumeIndex;
     GameState = GAME_PLAY;
     GameTimeMs = 0;
     Score = 0;
@@ -669,6 +707,8 @@ static void UpdateMisses(void)
     }
     if (NextNote >= len && GameTimeMs > (u32)song[len - 1U].time_ms + 1200U) {
         GameState = GAME_DONE;
+        MbVgaStateCode = MB_VGA_STATE_DONE;
+        VsGpioWrite(VsGpioState);
         Score += MaxCombo;
         UpdateScoreDisplay();
     }
@@ -749,8 +789,12 @@ int main(void)
             }
             if (paused_by_switch && GameState == GAME_PLAY) {
                 GameState = GAME_PAUSE;
+                MbVgaStateCode = MB_VGA_STATE_PAUSE;
+                VsGpioWrite(VsGpioState);
             } else if (!paused_by_switch && GameState == GAME_PAUSE) {
                 GameState = GAME_PLAY;
+                MbVgaStateCode = MB_VGA_STATE_PLAY;
+                VsGpioWrite(VsGpioState);
             }
             HandleButtons(buttons);
 
