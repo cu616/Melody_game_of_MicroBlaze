@@ -107,6 +107,9 @@ module rhythm_video_audio (
     reg [3:0] mb_display_digit1 = 4'd0;
     reg [3:0] mb_display_digit2 = 4'd0;
     reg [3:0] mb_display_digit3 = 4'd0;
+    reg [95:0] mb_note_tracks = 96'd0;
+    reg [95:0] mb_hold_tracks = 96'd0;
+    reg [2:0] mb_button_tracks = 3'd0;
 
     wire pix_tick = (pix_div == 2'b11);
     wire reset_active = ~reset;
@@ -153,6 +156,9 @@ module rhythm_video_audio (
     wire [19:0] ui_score_bcd = mb_mode ? {4'd0, mb_display_digit3, mb_display_digit2,
                                           mb_display_digit1, mb_display_digit0} :
                                           game_score_bcd;
+    wire [95:0] ui_note_tracks = mb_mode ? mb_note_tracks : game_tracks;
+    wire [95:0] ui_hold_tracks = mb_mode ? mb_hold_tracks : game_hold_tracks;
+    wire [2:0] ui_buttons = mb_mode ? mb_button_tracks : game_buttons;
     wire [5:0] ui_volume_text_id = mb_mode ? (6'd32 + {2'b00, mb_volume_level}) : volume_text_id;
     wire [5:0] ui_judgement_text_id = ui_paused ? 6'd44 :
                                        ui_finished ? 6'd30 :
@@ -1491,14 +1497,46 @@ module rhythm_video_audio (
 
     always @(posedge clk100) begin
         if (mb_mode) begin
-            case (mb_an_status)
-                8'b1110_1111: mb_display_digit3 <= sevenseg_to_nibble(mb_seg_status);
-                8'b1101_1111: mb_display_digit2 <= sevenseg_to_nibble(mb_seg_status);
-                8'b1011_1111: mb_display_digit1 <= sevenseg_to_nibble(mb_seg_status);
-                8'b0111_1111: mb_display_digit0 <= sevenseg_to_nibble(mb_seg_status);
-                default: begin
-                end
-            endcase
+            if (mb_an_status[7:5] == 3'b000) begin
+                case (mb_an_status[4:0])
+                    5'd0:  mb_note_tracks[7:0]    <= mb_seg_status;
+                    5'd1:  mb_note_tracks[15:8]   <= mb_seg_status;
+                    5'd2:  mb_note_tracks[23:16]  <= mb_seg_status;
+                    5'd3:  mb_note_tracks[31:24]  <= mb_seg_status;
+                    5'd4:  mb_note_tracks[39:32]  <= mb_seg_status;
+                    5'd5:  mb_note_tracks[47:40]  <= mb_seg_status;
+                    5'd6:  mb_note_tracks[55:48]  <= mb_seg_status;
+                    5'd7:  mb_note_tracks[63:56]  <= mb_seg_status;
+                    5'd8:  mb_note_tracks[71:64]  <= mb_seg_status;
+                    5'd9:  mb_note_tracks[79:72]  <= mb_seg_status;
+                    5'd10: mb_note_tracks[87:80]  <= mb_seg_status;
+                    5'd11: mb_note_tracks[95:88]  <= mb_seg_status;
+                    5'd12: mb_hold_tracks[7:0]    <= mb_seg_status;
+                    5'd13: mb_hold_tracks[15:8]   <= mb_seg_status;
+                    5'd14: mb_hold_tracks[23:16]  <= mb_seg_status;
+                    5'd15: mb_hold_tracks[31:24]  <= mb_seg_status;
+                    5'd16: mb_hold_tracks[39:32]  <= mb_seg_status;
+                    5'd17: mb_hold_tracks[47:40]  <= mb_seg_status;
+                    5'd18: mb_hold_tracks[55:48]  <= mb_seg_status;
+                    5'd19: mb_hold_tracks[63:56]  <= mb_seg_status;
+                    5'd20: mb_hold_tracks[71:64]  <= mb_seg_status;
+                    5'd21: mb_hold_tracks[79:72]  <= mb_seg_status;
+                    5'd22: mb_hold_tracks[87:80]  <= mb_seg_status;
+                    5'd23: mb_hold_tracks[95:88]  <= mb_seg_status;
+                    5'd24: mb_button_tracks       <= mb_seg_status[2:0];
+                    default: begin
+                    end
+                endcase
+            end else begin
+                case (mb_an_status)
+                    8'b1110_1111: mb_display_digit3 <= sevenseg_to_nibble(mb_seg_status);
+                    8'b1101_1111: mb_display_digit2 <= sevenseg_to_nibble(mb_seg_status);
+                    8'b1011_1111: mb_display_digit1 <= sevenseg_to_nibble(mb_seg_status);
+                    8'b0111_1111: mb_display_digit0 <= sevenseg_to_nibble(mb_seg_status);
+                    default: begin
+                    end
+                endcase
+            end
         end
     end
 
@@ -1509,7 +1547,7 @@ module rhythm_video_audio (
         end else begin
             diag_led[2:0] = game_hit_window;
             diag_led[4:3] = 2'b00;
-            diag_led[7:5] = game_buttons;
+            diag_led[7:5] = ui_buttons;
             diag_led[9:8] = 2'b00;
             diag_led[11:10] = game_song;
             diag_led[15:12] = game_judgement;
@@ -1521,7 +1559,7 @@ module rhythm_video_audio (
                 4'd2: diag_rgb = 6'b010_010; // good: green
                 4'd1: diag_rgb = 6'b100_100; // bad: blue on this board wiring
                 4'd0: diag_rgb = 6'b001_001; // miss: red on this board wiring
-                default: diag_rgb = (game_buttons != 3'd0) ? 6'b111_111 : 6'b000_000;
+                default: diag_rgb = (ui_buttons != 3'd0) ? 6'b111_111 : 6'b000_000;
             endcase
         end
         diag_an = game_an;
@@ -1663,20 +1701,20 @@ module rhythm_video_audio (
             game_row = (v_count - 10'd32) / 10'd12;
             game_lane = (h_count - 10'd200) / 10'd80;
             case (game_lane)
-                3'd0: game_lane_mask = game_tracks[31:0];
-                3'd1: game_lane_mask = game_tracks[63:32];
-                3'd2: game_lane_mask = game_tracks[95:64];
+                3'd0: game_lane_mask = ui_note_tracks[31:0];
+                3'd1: game_lane_mask = ui_note_tracks[63:32];
+                3'd2: game_lane_mask = ui_note_tracks[95:64];
                 default: game_lane_mask = 32'd0;
             endcase
             case (game_lane)
-                3'd0: game_hold_lane_mask = game_hold_tracks[31:0];
-                3'd1: game_hold_lane_mask = game_hold_tracks[63:32];
-                3'd2: game_hold_lane_mask = game_hold_tracks[95:64];
+                3'd0: game_hold_lane_mask = ui_hold_tracks[31:0];
+                3'd1: game_hold_lane_mask = ui_hold_tracks[63:32];
+                3'd2: game_hold_lane_mask = ui_hold_tracks[95:64];
                 default: game_hold_lane_mask = 32'd0;
             endcase
             game_note_pixel = game_lane_mask[game_row[4:0]];
             game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
-            game_button_pixel = game_buttons[game_lane] &&
+            game_button_pixel = ui_buttons[game_lane] &&
                                 ((h_count - 10'd200) % 10'd80 >= 10'd26) &&
                                 ((h_count - 10'd200) % 10'd80 < 10'd54) &&
                                 (v_count >= 10'd346) && (v_count < 10'd374);
@@ -1711,20 +1749,20 @@ module rhythm_video_audio (
             game_row = (v_count - 10'd32) / 10'd12;
             game_lane = (h_count - 10'd200) / 10'd80;
             case (game_lane)
-                3'd0: game_lane_mask = game_tracks[31:0];
-                3'd1: game_lane_mask = game_tracks[63:32];
-                3'd2: game_lane_mask = game_tracks[95:64];
+                3'd0: game_lane_mask = ui_note_tracks[31:0];
+                3'd1: game_lane_mask = ui_note_tracks[63:32];
+                3'd2: game_lane_mask = ui_note_tracks[95:64];
                 default: game_lane_mask = 32'd0;
             endcase
             case (game_lane)
-                3'd0: game_hold_lane_mask = game_hold_tracks[31:0];
-                3'd1: game_hold_lane_mask = game_hold_tracks[63:32];
-                3'd2: game_hold_lane_mask = game_hold_tracks[95:64];
+                3'd0: game_hold_lane_mask = ui_hold_tracks[31:0];
+                3'd1: game_hold_lane_mask = ui_hold_tracks[63:32];
+                3'd2: game_hold_lane_mask = ui_hold_tracks[95:64];
                 default: game_hold_lane_mask = 32'd0;
             endcase
             game_note_pixel = game_lane_mask[game_row[4:0]];
             game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
-            game_button_pixel = game_buttons[game_lane] &&
+            game_button_pixel = ui_buttons[game_lane] &&
                                 ((h_count - 10'd200) % 10'd80 >= 10'd26) &&
                                 ((h_count - 10'd200) % 10'd80 < 10'd54) &&
                                 (v_count >= 10'd346) && (v_count < 10'd374);
@@ -1760,7 +1798,7 @@ module rhythm_video_audio (
         end else if (v_count >= 10'd424 && v_count < 10'd448 &&
                      h_count >= 10'd200 && h_count < 10'd440) begin
             game_lane = (h_count - 10'd200) / 10'd80;
-            if (game_buttons[game_lane]) begin
+            if (ui_buttons[game_lane]) begin
                 case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
                     4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end

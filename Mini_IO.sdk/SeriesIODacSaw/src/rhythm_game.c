@@ -500,6 +500,17 @@ static const Note Song1[] = {
     { 7450, LANE_RIGHT, 0,   0}, { 7900, LANE_MID,   0,   0}
 };
 
+static const Note Song2[] = {
+    {  900, LANE_LEFT,  0,   0}, { 1300, LANE_RIGHT, 0,   0},
+    { 1700, LANE_MID,   0,   0}, { 2150, LANE_LEFT,  1, 650},
+    { 3050, LANE_RIGHT, 0,   0}, { 3500, LANE_MID,   0,   0},
+    { 3950, LANE_LEFT,  0,   0}, { 4400, LANE_RIGHT, 1, 800},
+    { 5450, LANE_MID,   0,   0}, { 5900, LANE_LEFT,  0,   0},
+    { 6350, LANE_RIGHT, 0,   0}, { 6800, LANE_MID,   1, 700},
+    { 7750, LANE_LEFT,  0,   0}, { 8200, LANE_RIGHT, 0,   0},
+    { 8650, LANE_MID,   0,   0}, { 9100, LANE_LEFT,  0,   0}
+};
+
 static const u8 SegHex[16] = {
     0xC0, 0xF9, 0xA4, 0xB0, 0x99, 0x92, 0x82, 0xF8,
     0x80, 0x90, 0x88, 0x83, 0xC6, 0xA1, 0x86, 0x8E
@@ -520,11 +531,17 @@ static u16 MaxCombo = 0;
 
 static const Note *CurrentSong(void)
 {
+    if (SongIndex == 2U) {
+        return Song2;
+    }
     return SongIndex ? Song1 : Song0;
 }
 
 static u8 CurrentSongLen(void)
 {
+    if (SongIndex == 2U) {
+        return (u8)(sizeof(Song2) / sizeof(Song2[0]));
+    }
     return SongIndex ? (u8)(sizeof(Song1) / sizeof(Song1[0])) :
                        (u8)(sizeof(Song0) / sizeof(Song0[0]));
 }
@@ -609,6 +626,104 @@ static void ScanSevenSeg(void)
     Xil_Out32(GPIO_SEVENSEG_BASEADDR + XGPIO_DATA_OFFSET, (u32)((u8)~(1U << ScanDigit)));
     Xil_Out32(GPIO_SEVENSEG_BASEADDR + XGPIO_DATA2_OFFSET, (u32)Display[ScanDigit]);
     ScanDigit = (ScanDigit + 1U) & 7U;
+}
+
+static void MbVgaPacketWrite(u8 packet_id, u8 data)
+{
+    Xil_Out32(GPIO_SEVENSEG_BASEADDR + XGPIO_DATA_OFFSET, (u32)(packet_id & 0x1FU));
+    Xil_Out32(GPIO_SEVENSEG_BASEADDR + XGPIO_DATA2_OFFSET, (u32)data);
+}
+
+static s16 MbVgaNoteRow(s32 note_time_ms)
+{
+    s32 future = note_time_ms - (s32)GameTimeMs;
+    s32 offset;
+    if (future >= 0) {
+        offset = (future + 40) / 80;
+    } else {
+        offset = (future - 40) / 80;
+    }
+    return (s16)(27 - offset);
+}
+
+static void MbVgaSetTrackBit(u32 tracks[3], u8 lane, s16 row)
+{
+    if (lane < 3U && row >= 0 && row < 32) {
+        tracks[lane] |= (1UL << (u8)row);
+    }
+}
+
+static void MbVgaSetHoldRange(u32 tracks[3], u8 lane, s16 row_a, s16 row_b)
+{
+    s16 row;
+    s16 lo = row_a < row_b ? row_a : row_b;
+    s16 hi = row_a < row_b ? row_b : row_a;
+    if (lo < 0) {
+        lo = 0;
+    }
+    if (hi > 31) {
+        hi = 31;
+    }
+    for (row = lo; row <= hi; ++row) {
+        MbVgaSetTrackBit(tracks, lane, row);
+    }
+}
+
+static void MbVgaBuildTracks(u32 notes[3], u32 holds[3])
+{
+    const Note *song = CurrentSong();
+    u8 len = CurrentSongLen();
+    u8 i;
+
+    notes[0] = 0U;
+    notes[1] = 0U;
+    notes[2] = 0U;
+    holds[0] = 0U;
+    holds[1] = 0U;
+    holds[2] = 0U;
+
+    for (i = 0; i < len; ++i) {
+        s16 row = MbVgaNoteRow((s32)song[i].time_ms);
+        if (song[i].hold != 0U && song[i].length_ms > 0U) {
+            s16 tail = MbVgaNoteRow((s32)song[i].time_ms + (s32)song[i].length_ms);
+            MbVgaSetHoldRange(holds, song[i].lane, row, tail);
+            MbVgaSetTrackBit(notes, song[i].lane, row);
+        } else {
+            MbVgaSetTrackBit(notes, song[i].lane, row);
+        }
+    }
+}
+
+static void MbVgaSendFrame(u8 buttons)
+{
+    u32 notes[3];
+    u32 holds[3];
+    u8 lane_buttons = 0U;
+    u8 lane;
+    u8 chunk;
+
+    MbVgaBuildTracks(notes, holds);
+    if ((buttons & BTN_L) != 0U) {
+        lane_buttons |= 0x01U;
+    }
+    if ((buttons & BTN_C) != 0U) {
+        lane_buttons |= 0x02U;
+    }
+    if ((buttons & BTN_R) != 0U) {
+        lane_buttons |= 0x04U;
+    }
+
+    for (lane = 0U; lane < 3U; ++lane) {
+        for (chunk = 0U; chunk < 4U; ++chunk) {
+            MbVgaPacketWrite((u8)(lane * 4U + chunk), (u8)(notes[lane] >> (chunk * 8U)));
+        }
+    }
+    for (lane = 0U; lane < 3U; ++lane) {
+        for (chunk = 0U; chunk < 4U; ++chunk) {
+            MbVgaPacketWrite((u8)(12U + lane * 4U + chunk), (u8)(holds[lane] >> (chunk * 8U)));
+        }
+    }
+    MbVgaPacketWrite(24U, lane_buttons);
 }
 
 static void StartGame(void)
@@ -782,7 +897,6 @@ int main(void)
             u16 sw = (u16)Xil_In32(GPIO_SW_LED_BASEADDR + XGPIO_DATA_OFFSET);
             u16 song_sw = sw & 0x0003U;
             u8 paused_by_switch = ((sw & SW_PAUSE_MASK) != 0U);
-            ScanSevenSeg();
             buttons = (u8)(Xil_In32(GPIO_BUTTON_RGB_BASEADDR + XGPIO_DATA_OFFSET) & 0x1FU);
             if (song_sw != LastSongSwitch) {
                 StartGame();
@@ -803,7 +917,9 @@ int main(void)
                 UpdateMisses();
                 VsServiceFadedMidi();
             }
+            MbVgaSendFrame(buttons);
             UpdateFeedback(buttons);
+            ScanSevenSeg();
         } else if (GameState == GAME_PLAY) {
             VsServiceFadedMidi();
         }

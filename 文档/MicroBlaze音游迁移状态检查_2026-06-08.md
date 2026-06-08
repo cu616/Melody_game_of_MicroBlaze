@@ -85,3 +85,24 @@ MicroBlaze 已经承担 VS1003B 播放、曲目选择、音量、暂停、基础
 - bitstream 已成功生成并下载。
 
 这仍然不是完全 MicroBlaze 化，因为轨道音符滚动和旧的 RTL `rhythm_game_core` 仍然存在。它属于“VGA/UI 状态开始由 MicroBlaze 驱动”的第一阶段。
+
+## 2026-06-08 第二阶段进展
+
+已完成 MicroBlaze 驱动可见谱面状态：
+
+- MicroBlaze 根据 C 程序中的 `Song0/Song1/Song2` 和 `GameTimeMs` 计算三轨 32 行 note/hold mask。
+- MicroBlaze 通过复用 AXI GPIO1 七段数码管输出发送 VGA packet。
+- VGA RTL 在 `SW2=1` 时使用 MicroBlaze packet 中的 note/hold/button 状态绘制轨道。
+- Aphasia 增加了独立 `Song2` 演示谱面，不再直接复用 `Song1`。
+
+当前迁移边界更新为：
+
+| 内容 | 当前实现 |
+| --- | --- |
+| 游戏时间、曲目选择、暂停、判定、分数 | MicroBlaze C |
+| VS1003B 播放、音量、MIDI byte-stream | MicroBlaze C |
+| 可见 note/hold/button 轨道状态 | MicroBlaze C 计算，RTL 锁存绘制 |
+| VGA 像素扫描、文字/轨道/曲绘模板绘制 | RTL |
+| `SW2=0` 旧模式 | RTL `rhythm_game_core` 仍保留 |
+
+因此当前已经从“MicroBlaze 只控制右侧 UI 状态”推进到“MicroBlaze 控制轨道谱面状态”。如果要继续提高 SoC 说服力，下一步应新增专用 AXI-Lite VGA 状态寄存器，并逐步去掉旧 RTL `rhythm_game_core` 的自运行路径。
