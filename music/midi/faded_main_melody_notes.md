@@ -1,49 +1,11 @@
 # Faded main melody
 
-BPM: 90
+Source: `music/midi_import/faded_perfect.mid`
 
-| index | note | beats | velocity |
-| ---: | --- | ---: | ---: |
-| 1 | A4 | 1 | 120 |
-| 2 | A4 | 1 | 120 |
-| 3 | G4 | 1 | 120 |
-| 4 | A4 | 1 | 120 |
-| 5 | C5 | 1 | 120 |
-| 6 | C5 | 1 | 120 |
-| 7 | B4 | 1 | 120 |
-| 8 | C5 | 1 | 120 |
-| 9 | A4 | 1 | 120 |
-| 10 | A4 | 1 | 120 |
-| 11 | G4 | 1 | 120 |
-| 12 | A4 | 1 | 120 |
-| 13 | E5 | 1 | 120 |
-| 14 | E5 | 1 | 120 |
-| 15 | D5 | 1 | 120 |
-| 16 | E5 | 1 | 120 |
-| 17 | A4 | 1 | 122 |
-| 18 | G4 | 1 | 122 |
-| 19 | E4 | 1 | 122 |
-| 20 | D4 | 1 | 122 |
-| 21 | C4 | 1 | 122 |
-| 22 | B3 | 1 | 122 |
-| 23 | C4 | 1 | 122 |
-| 24 | D4 | 1 | 122 |
-| 25 | E4 | 4 | 122 |
-| 26 | E4 | 1 | 122 |
-| 27 | D4 | 1 | 122 |
-| 28 | C4 | 1 | 122 |
-| 29 | B3 | 1 | 122 |
-| 30 | A3 | 1 | 122 |
-| 31 | G3 | 1 | 122 |
-| 32 | A3 | 1 | 122 |
-| 33 | B3 | 1 | 122 |
-| 34 | C4 | 4 | 122 |
-| 35 | A4 | 1 | 122 |
-| 36 | G4 | 1 | 122 |
-| 37 | E4 | 1 | 122 |
-| 38 | D4 | 1 | 122 |
-| 39 | C4 | 1 | 122 |
-| 40 | B3 | 1 | 122 |
-| 41 | C4 | 1 | 122 |
-| 42 | D4 | 1 | 122 |
-| 43 | E4 | 4 | 122 |
+Mode: full-MIDI clip merged to VS1003B-friendly MIDI Type 0.
+
+Range: requested 50s-110s, aligned outward to full 4/4 bars as source beats 72-168.
+
+Output BPM: preserved from source MIDI.
+
+Dynamics: channel volumes and velocities are reduced to balance against Canon/Aphasia without changing melody timing or pitch.
