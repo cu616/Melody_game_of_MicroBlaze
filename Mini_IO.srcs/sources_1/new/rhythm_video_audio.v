@@ -86,6 +86,8 @@ module rhythm_video_audio (
     wire [2:0] button_edges;
     wire [7:0] game_seg;
     wire [7:0] game_an;
+    wire [7:0] mb_game_seg;
+    wire [7:0] mb_game_an;
     wire [7:0] vs1003_debug;
     wire [11:0] album_art_rgb;
     wire track_art_area;
@@ -126,7 +128,7 @@ module rhythm_video_audio (
     wire audio_enabled = switches[0] || switches[1];
     wire game_paused = switches[15];
     wire audio_playing = audio_enabled && !game_finished && !game_paused;
-    wire vs1003_demo_enabled = switches[2];
+    wire vs1003_demo_enabled = 1'b0;
     wire vs1003_player_enabled = vs1003_demo_enabled;
     wire [1:0] game_song = edm_mode ? 2'd1 : 2'd0;
     wire vs1003_pitch_test = switches[14];
@@ -258,6 +260,17 @@ module rhythm_video_audio (
         .paused(game_paused),
         .seg(game_seg),
         .an(game_an)
+    );
+
+    rhythm_mb_sevenseg mb_sevenseg_i (
+        .clk(clk100),
+        .reset(reset_active),
+        .score_bcd(ui_score_bcd),
+        .judgement(ui_judgement),
+        .paused(ui_paused),
+        .finished(ui_finished),
+        .seg(mb_game_seg),
+        .an(mb_game_an)
     );
 
     vs1003b_mp3_rom_player vs1003b_demo_i (
@@ -611,6 +624,18 @@ module rhythm_video_audio (
                     case (index)
                         5'd0: ui_char = "A"; 5'd1: ui_char = "P"; 5'd2: ui_char = "H"; 5'd3: ui_char = "A";
                         5'd4: ui_char = "S"; 5'd5: ui_char = "I"; 5'd6: ui_char = "A";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd47: begin
+                    case (index)
+                        5'd0: ui_char = "M"; 5'd1: ui_char = "B";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd48: begin
+                    case (index)
+                        5'd0: ui_char = "M"; 5'd1: ui_char = "I"; 5'd2: ui_char = "D"; 5'd3: ui_char = "I";
                         default: ui_char = " ";
                     endcase
                 end
@@ -1549,17 +1574,13 @@ module rhythm_video_audio (
     end
 
     always @(*) begin
-        if (vs1003_demo_enabled) begin
-            diag_led = {4'ha, switches[2], vs1003_player_enabled, vs_dreq, vs_xrst,
-                        vs1003_debug[5:2], vs1003_debug[1:0], vs_sclk, vs_mosi};
-        end else begin
-            diag_led[2:0] = game_hit_window;
-            diag_led[4:3] = 2'b00;
-            diag_led[7:5] = ui_buttons;
-            diag_led[9:8] = 2'b00;
-            diag_led[11:10] = game_song;
-            diag_led[15:12] = game_judgement;
-        end
+        diag_led[2:0] = ui_buttons;
+        diag_led[4:3] = mb_game_state;
+        diag_led[5] = |(ui_note_tracks[31:29] | ui_note_tracks[63:61] | ui_note_tracks[95:93]);
+        diag_led[7:6] = 2'b00;
+        diag_led[9:8] = ui_song_select;
+        diag_led[11:10] = mb_rating_code;
+        diag_led[15:12] = mb_volume_level;
         if (!ui_audio_enabled || ui_finished) begin
             diag_rgb = 6'b111_111; // ready/finish: white
         end else begin
@@ -1570,8 +1591,8 @@ module rhythm_video_audio (
                 default: diag_rgb = (ui_buttons != 3'd0) ? 6'b111_111 : 6'b000_000;
             endcase
         end
-        diag_an = game_an;
-        diag_seg = game_seg;
+        diag_an = mb_game_an;
+        diag_seg = mb_game_seg;
     end
 
     always @(*) begin
@@ -1590,9 +1611,9 @@ module rhythm_video_audio (
                         ui_text2_pixel(5'd3, h_count, v_count, 10'd24, 10'd170) ||  // KEYS
                         ui_text2_pixel(5'd4, h_count, v_count, 10'd32, 10'd204) ||  // L C R
                         ui_text2_pixel(5'd11, h_count, v_count, 10'd24, 10'd288) || // VS1003
-                        ui_text2_pixel(6'd43, h_count, v_count, 10'd104, 10'd288) || // SW2
-                        ui_text2_pixel(5'd12, h_count, v_count, 10'd24, 10'd322) || // DEMO
-                        ui_text2_pixel(vs1003_demo_enabled ? 5'd14 : 5'd13, h_count, v_count, 10'd96, 10'd322) ||
+                        ui_text2_pixel(6'd47, h_count, v_count, 10'd104, 10'd288) || // MB
+                        ui_text2_pixel(6'd48, h_count, v_count, 10'd24, 10'd322) || // MIDI
+                        ui_text2_pixel(5'd14, h_count, v_count, 10'd96, 10'd322) || // ON
                         ui_text2_pixel(5'd5, h_count, v_count, 10'd480, 10'd24) ||  // SPEED
                         ui_text2_pixel(6'd42, h_count, v_count, 10'd548, 10'd24) || // SW5-3
                         ui_text2_pixel(game_speed_text_id, h_count, v_count, 10'd496, 10'd58) ||
@@ -3111,6 +3132,79 @@ module rhythm_game_core (
         end else begin
             scroll_div <= scroll_div;
         end
+    end
+endmodule
+
+module rhythm_mb_sevenseg (
+    input wire clk,
+    input wire reset,
+    input wire [19:0] score_bcd,
+    input wire [3:0] judgement,
+    input wire paused,
+    input wire finished,
+    output reg [7:0] seg,
+    output reg [7:0] an
+);
+    reg [16:0] refresh = 17'd0;
+    reg [3:0] nibble = 4'd0;
+
+    function [7:0] digit_seg;
+        input [3:0] digit;
+        begin
+            case (digit)
+                4'd0: digit_seg = 8'b1100_0000;
+                4'd1: digit_seg = 8'b1111_1001;
+                4'd2: digit_seg = 8'b1010_0100;
+                4'd3: digit_seg = 8'b1011_0000;
+                4'd4: digit_seg = 8'b1001_1001;
+                4'd5: digit_seg = 8'b1001_0010;
+                4'd6: digit_seg = 8'b1000_0010;
+                4'd7: digit_seg = 8'b1111_1000;
+                4'd8: digit_seg = 8'b1000_0000;
+                4'd9: digit_seg = 8'b1001_0000;
+                4'ha: digit_seg = 8'b1000_1000; // A/good
+                4'hb: digit_seg = 8'b1000_0011; // b/bad
+                4'hc: digit_seg = 8'b1100_1000; // M/miss
+                4'hd: digit_seg = 8'b1010_0001; // d/done
+                4'he: digit_seg = 8'b1000_0110; // E/finish
+                4'hf: digit_seg = 8'b1000_1100; // P/pause
+                default: digit_seg = 8'b1111_1111;
+            endcase
+        end
+    endfunction
+
+    function [3:0] judge_digit;
+        input [3:0] value;
+        begin
+            case (value)
+                4'd2: judge_digit = 4'ha;
+                4'd1: judge_digit = 4'hb;
+                4'd0: judge_digit = 4'hc;
+                default: judge_digit = 4'd0;
+            endcase
+        end
+    endfunction
+
+    always @(posedge clk) begin
+        if (reset) begin
+            refresh <= 17'd0;
+        end else begin
+            refresh <= refresh + 17'd1;
+        end
+    end
+
+    always @(*) begin
+        case (refresh[16:14])
+            3'd0: begin an = 8'b1111_1110; nibble = score_bcd[3:0]; end
+            3'd1: begin an = 8'b1111_1101; nibble = score_bcd[7:4]; end
+            3'd2: begin an = 8'b1111_1011; nibble = score_bcd[11:8]; end
+            3'd3: begin an = 8'b1111_0111; nibble = score_bcd[15:12]; end
+            3'd4: begin an = 8'b1110_1111; nibble = score_bcd[19:16]; end
+            3'd5: begin an = 8'b1101_1111; nibble = judge_digit(judgement); end
+            3'd6: begin an = 8'b1011_1111; nibble = finished ? 4'he : 4'd0; end
+            default: begin an = 8'b0111_1111; nibble = paused ? 4'hf : 4'd0; end
+        endcase
+        seg = digit_seg(nibble);
     end
 endmodule
 

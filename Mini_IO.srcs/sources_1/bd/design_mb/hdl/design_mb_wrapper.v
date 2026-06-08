@@ -110,9 +110,9 @@ module design_mb_wrapper
   wire rtl_vs_xdcs;
   wire rtl_vs_xrst;
 
-  // SW2 hands the VS1003B pins to the MicroBlaze software player.
-  // SW2=0 keeps the legacy RTL player/debug display available.
-  assign vs_mb_mode = dip_switches_16bits_tri_i[2];
+  // Classroom SoC build: MicroBlaze always owns the game/audio state.
+  // The RTL block remains as the VGA/display timing bridge, not as a selectable game mode.
+  assign vs_mb_mode = 1'b1;
   assign mb_MISO = VS_MISO;
   assign mb_switches_tri_i = {VS_DREQ, VS_MISO, dip_switches_16bits_tri_i[13:0]};
   assign VS_MOSI = vs_mb_mode ? mb_led_16bits_tri_o[3] : rtl_vs_mosi;
@@ -120,10 +120,10 @@ module design_mb_wrapper
   assign VS_XCS = vs_mb_mode ? mb_led_16bits_tri_o[0] : rtl_vs_xcs;
   assign VS_XDCS = vs_mb_mode ? mb_led_16bits_tri_o[1] : rtl_vs_xdcs;
   assign VS_XRST = vs_mb_mode ? mb_led_16bits_tri_o[2] : rtl_vs_xrst;
-  assign led_16bits_tri_o = vs_mb_mode ? mb_led_16bits_tri_o : rtl_led_16bits_tri_o;
-  assign dual_seven_seg_led_disp_tri_o = vs_mb_mode ? mb_dual_seven_seg_led_disp_tri_o : rtl_dual_seven_seg_led_disp_tri_o;
-  assign seven_seg_led_an_tri_o = vs_mb_mode ? mb_seven_seg_led_an_tri_o : rtl_seven_seg_led_an_tri_o;
-  assign rgb_led_tri_o = vs_mb_mode ? mb_rgb_led_tri_o : rtl_rgb_led_tri_o;
+  assign led_16bits_tri_o = mb_led_16bits_tri_o;
+  assign dual_seven_seg_led_disp_tri_o = rtl_dual_seven_seg_led_disp_tri_o;
+  assign seven_seg_led_an_tri_o = rtl_seven_seg_led_an_tri_o;
+  assign rgb_led_tri_o = rtl_rgb_led_tri_o;
 
   design_mb design_mb_i
        (.MISO(mb_MISO),
