@@ -607,6 +607,13 @@ module rhythm_video_audio (
                         default: ui_char = " ";
                     endcase
                 end
+                6'd46: begin
+                    case (index)
+                        5'd0: ui_char = "A"; 5'd1: ui_char = "P"; 5'd2: ui_char = "H"; 5'd3: ui_char = "A";
+                        5'd4: ui_char = "S"; 5'd5: ui_char = "I"; 5'd6: ui_char = "A";
+                        default: ui_char = " ";
+                    endcase
+                end
                 default: ui_char = " ";
             endcase
         end
@@ -635,6 +642,7 @@ module rhythm_video_audio (
                 "E": case (row) 3'd0: ui_glyph_row=5'b11111; 3'd1: ui_glyph_row=5'b10000; 3'd2: ui_glyph_row=5'b10000; 3'd3: ui_glyph_row=5'b11110; 3'd4: ui_glyph_row=5'b10000; 3'd5: ui_glyph_row=5'b10000; 3'd6: ui_glyph_row=5'b11111; endcase
                 "F": case (row) 3'd0: ui_glyph_row=5'b11111; 3'd1: ui_glyph_row=5'b10000; 3'd2: ui_glyph_row=5'b10000; 3'd3: ui_glyph_row=5'b11110; 3'd4: ui_glyph_row=5'b10000; 3'd5: ui_glyph_row=5'b10000; 3'd6: ui_glyph_row=5'b10000; endcase
                 "G": case (row) 3'd0: ui_glyph_row=5'b01110; 3'd1: ui_glyph_row=5'b10001; 3'd2: ui_glyph_row=5'b10000; 3'd3: ui_glyph_row=5'b10111; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b01111; endcase
+                "H": case (row) 3'd0: ui_glyph_row=5'b10001; 3'd1: ui_glyph_row=5'b10001; 3'd2: ui_glyph_row=5'b10001; 3'd3: ui_glyph_row=5'b11111; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b10001; endcase
                 "I": case (row) 3'd0: ui_glyph_row=5'b01110; 3'd1: ui_glyph_row=5'b00100; 3'd2: ui_glyph_row=5'b00100; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b00100; 3'd6: ui_glyph_row=5'b01110; endcase
                 "J": case (row) 3'd0: ui_glyph_row=5'b00111; 3'd1: ui_glyph_row=5'b00010; 3'd2: ui_glyph_row=5'b00010; 3'd3: ui_glyph_row=5'b00010; 3'd4: ui_glyph_row=5'b10010; 3'd5: ui_glyph_row=5'b10010; 3'd6: ui_glyph_row=5'b01100; endcase
                 "K": case (row) 3'd0: ui_glyph_row=5'b10001; 3'd1: ui_glyph_row=5'b10010; 3'd2: ui_glyph_row=5'b10100; 3'd3: ui_glyph_row=5'b11000; 3'd4: ui_glyph_row=5'b10100; 3'd5: ui_glyph_row=5'b10010; 3'd6: ui_glyph_row=5'b10001; endcase
@@ -1578,6 +1586,7 @@ module rhythm_video_audio (
                         ui_text2_pixel(6'd41, h_count, v_count, 10'd92, 10'd24) ||  // SW0-1
                         ui_text2_pixel(5'd1, h_count, v_count, 10'd32, 10'd58) ||   // CANON
                         ui_text2_pixel(5'd2, h_count, v_count, 10'd32, 10'd102) ||  // FADE
+                        ui_text2_pixel(6'd46, h_count, v_count, 10'd32, 10'd140) || // APHASIA
                         ui_text2_pixel(5'd3, h_count, v_count, 10'd24, 10'd170) ||  // KEYS
                         ui_text2_pixel(5'd4, h_count, v_count, 10'd32, 10'd204) ||  // L C R
                         ui_text2_pixel(5'd11, h_count, v_count, 10'd24, 10'd288) || // VS1003
@@ -1606,6 +1615,8 @@ module rhythm_video_audio (
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd51 || v_count >= 10'd85)) ||
                        ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd92 && v_count < 10'd132) &&
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd95 || v_count >= 10'd129)) ||
+                       ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd136 && v_count < 10'd166) &&
+                        (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd139 || v_count >= 10'd163)) ||
                        ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd194 && v_count < 10'd232) &&
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd197 || v_count >= 10'd229)) ||
                        ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd312 && v_count < 10'd354) &&
@@ -1623,8 +1634,10 @@ module rhythm_video_audio (
         ui_line_pixel = (h_count == 10'd176 || h_count == 10'd463);
         ui_selected_pixel = (((mb_mode && ui_song_select == 2'd0) || (!mb_mode && canon_mode)) &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd52 && v_count < 10'd84) ||
-                            (((mb_mode && ui_song_select != 2'd0) || (!mb_mode && edm_mode)) &&
+                            (((mb_mode && ui_song_select == 2'd1) || (!mb_mode && edm_mode)) &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd96 && v_count < 10'd128) ||
+                            (mb_mode && ui_song_select == 2'd2 &&
+                             h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd140 && v_count < 10'd162) ||
                             (vs1003_demo_enabled && h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd316 && v_count < 10'd350);
 
         if (!active_video) begin
@@ -1833,8 +1846,10 @@ module album_art_track_rom (
 
     (* rom_style = "block" *) reg [7:0] canon_index [0:ART_PIXELS-1];
     (* rom_style = "block" *) reg [7:0] fade_index [0:ART_PIXELS-1];
+    (* rom_style = "block" *) reg [7:0] aphasia_index [0:ART_PIXELS-1];
     reg [11:0] canon_palette [0:63];
     reg [11:0] fade_palette [0:63];
+    reg [11:0] aphasia_palette [0:63];
     wire [8:0] art_row = (pixel_y - ART_Y0) >> 1;
     wire [6:0] art_col = (pixel_x - ART_X0) >> 1;
     wire [16:0] art_row_times_120 =
@@ -1847,6 +1862,8 @@ module album_art_track_rom (
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/canon_track_bg_palette.mem", canon_palette);
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/fade_track_bg_index.mem", fade_index);
         $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/fade_track_bg_palette.mem", fade_palette);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/aphasia_track_bg_index.mem", aphasia_index);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/aphasia_track_bg_palette.mem", aphasia_palette);
     end
 
     always @(*) begin
@@ -1857,7 +1874,10 @@ module album_art_track_rom (
         if (!valid) begin
             art_index <= 6'd0;
             rgb <= 12'h000;
-        end else if (song_select[0]) begin
+        end else if (song_select == 2'd2) begin
+            art_index <= aphasia_index[art_addr][5:0];
+            rgb <= aphasia_palette[art_index];
+        end else if (song_select == 2'd1) begin
             art_index <= fade_index[art_addr][5:0];
             rgb <= fade_palette[art_index];
         end else begin
