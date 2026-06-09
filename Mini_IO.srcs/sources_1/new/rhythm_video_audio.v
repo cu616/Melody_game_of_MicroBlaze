@@ -19,8 +19,6 @@ module rhythm_video_audio (
     output reg [7:0] diag_seg,
     output reg [7:0] diag_an,
     output reg [5:0] diag_rgb,
-    output wire aud_pwm,
-    output wire aud_sd,
     input wire vs_dreq,
     input wire vs_miso,
     output wire vs_mosi,
@@ -29,6 +27,9 @@ module rhythm_video_audio (
     output wire vs_xdcs,
     output wire vs_xrst
 );
+    // This module is the hardware display bridge for the SoC version.
+    // MicroBlaze owns gameplay/audio state; RTL keeps VGA timing, font/cover
+    // ROM lookup, seven-segment multiplexing, and LED atmosphere effects stable.
     localparam H_VISIBLE = 640;
     localparam H_FRONT   = 16;
     localparam H_SYNC    = 96;
@@ -112,6 +113,8 @@ module rhythm_video_audio (
     reg [95:0] mb_note_tracks = 96'd0;
     reg [95:0] mb_hold_tracks = 96'd0;
     reg [2:0] mb_button_tracks = 3'd0;
+    reg [15:0] led_pattern = 16'd0;
+    reg [7:0] led_level = 8'd0;
 
     wire pix_tick = (pix_div == 2'b11);
     wire reset_active = ~reset;
@@ -137,7 +140,7 @@ module rhythm_video_audio (
     wire [5:0] game_speed_text_id = 6'd17 + {3'b000, game_speed};
     wire [5:0] volume_text_id = 6'd32 + {3'b000, volume_level};
     wire [1:0] volume_button_edges = volume_button_sync & ~volume_button_prev;
-    wire [5:0] game_judgement_text_id = game_paused ? 6'd44 :
+    wire [5:0] game_judgement_text_id = game_paused ? 6'd51 :
                                          game_finished ? 6'd30 :
                                          (game_judgement == 4'd2) ? 6'd8 :
                                          (game_judgement == 4'd1) ? 6'd9 :
@@ -161,8 +164,20 @@ module rhythm_video_audio (
     wire [95:0] ui_note_tracks = mb_mode ? mb_note_tracks : game_tracks;
     wire [95:0] ui_hold_tracks = mb_mode ? mb_hold_tracks : game_hold_tracks;
     wire [2:0] ui_buttons = mb_mode ? mb_button_tracks : game_buttons;
+    wire [7:0] led_breathe =
+        slow_count[26] ? ~slow_count[25:18] : slow_count[25:18];
+    wire [7:0] led_pwm = slow_count[7:0];
+    wire led_left_active =
+        |(ui_note_tracks[31:24] | ui_hold_tracks[31:24]);
+    wire led_mid_active =
+        |(ui_note_tracks[63:56] | ui_hold_tracks[63:56]);
+    wire led_right_active =
+        |(ui_note_tracks[95:88] | ui_hold_tracks[95:88]);
+    wire led_note_near_judge =
+        |(ui_note_tracks[31:24] | ui_note_tracks[63:56] | ui_note_tracks[95:88] |
+          ui_hold_tracks[31:24] | ui_hold_tracks[63:56] | ui_hold_tracks[95:88]);
     wire [5:0] ui_volume_text_id = mb_mode ? (6'd32 + {2'b00, mb_volume_level}) : volume_text_id;
-    wire [5:0] ui_judgement_text_id = ui_paused ? 6'd44 :
+    wire [5:0] ui_judgement_text_id = ui_paused ? 6'd51 :
                                        ui_finished ? 6'd30 :
                                        (ui_judgement == 4'd2) ? 6'd8 :
                                        (ui_judgement == 4'd1) ? 6'd9 :
@@ -193,6 +208,9 @@ module rhythm_video_audio (
     assign track_bg_r = album_art_rgb[11:8];
     assign track_bg_g = album_art_rgb[7:4];
     assign track_bg_b = album_art_rgb[3:0];
+    wire [3:0] hold_blend_r = {1'b0, track_bg_r[3:1]} + 4'h8;
+    wire [3:0] hold_blend_g = {1'b0, track_bg_g[3:1]} + 4'h8;
+    wire [3:0] hold_blend_b = {1'b0, track_bg_b[3:1]} + 4'h8;
 
     localparam CANON_TOTAL_STEPS = 11'd1151; // 64 bars plus delayed-voice tail
     localparam FADE_TOTAL_STEPS = 9'd63; // 16-bar opening intro, quarter-note grid
@@ -229,9 +247,8 @@ module rhythm_video_audio (
     localparam N_G2   = 5'd30;
     localparam N_B2   = 5'd31;
 
-    assign aud_sd = 1'b1;
-    assign aud_pwm = pdm_acc[10] ? 1'bz : 1'b0;
-
+    // The old J8 PWM audio path is intentionally left without board pins.
+    // Final audio is streamed by MicroBlaze to the VS1003B module.
     rhythm_game_core game_core_i (
         .clk(clk100),
         .reset(reset_active),
@@ -267,6 +284,7 @@ module rhythm_video_audio (
         .reset(reset_active),
         .score_bcd(ui_score_bcd),
         .judgement(ui_judgement),
+        .ready(!ui_audio_enabled),
         .paused(ui_paused),
         .finished(ui_finished),
         .seg(mb_game_seg),
@@ -345,25 +363,25 @@ module rhythm_video_audio (
             case (text_id)
                 5'd0: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "O"; 5'd2: ui_char = "N"; 5'd3: ui_char = "G";
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "o"; 5'd2: ui_char = "n"; 5'd3: ui_char = "g";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd1: begin
                     case (index)
-                        5'd0: ui_char = "C"; 5'd1: ui_char = "A"; 5'd2: ui_char = "N"; 5'd3: ui_char = "O"; 5'd4: ui_char = "N";
+                        5'd0: ui_char = "C"; 5'd1: ui_char = "a"; 5'd2: ui_char = "n"; 5'd3: ui_char = "o"; 5'd4: ui_char = "n";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd2: begin
                     case (index)
-                        5'd0: ui_char = "F"; 5'd1: ui_char = "A"; 5'd2: ui_char = "D"; 5'd3: ui_char = "E";
+                        5'd0: ui_char = "F"; 5'd1: ui_char = "a"; 5'd2: ui_char = "d"; 5'd3: ui_char = "e"; 5'd4: ui_char = "d";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd3: begin
                     case (index)
-                        5'd0: ui_char = "K"; 5'd1: ui_char = "E"; 5'd2: ui_char = "Y"; 5'd3: ui_char = "S";
+                        5'd0: ui_char = "K"; 5'd1: ui_char = "e"; 5'd2: ui_char = "y"; 5'd3: ui_char = "s";
                         default: ui_char = " ";
                     endcase
                 end
@@ -375,7 +393,7 @@ module rhythm_video_audio (
                 end
                 5'd5: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "P"; 5'd2: ui_char = "E"; 5'd3: ui_char = "E"; 5'd4: ui_char = "D";
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "p"; 5'd2: ui_char = "e"; 5'd3: ui_char = "e"; 5'd4: ui_char = "d";
                         default: ui_char = " ";
                     endcase
                 end
@@ -387,25 +405,25 @@ module rhythm_video_audio (
                 end
                 5'd7: begin
                     case (index)
-                        5'd0: ui_char = "J"; 5'd1: ui_char = "U"; 5'd2: ui_char = "D"; 5'd3: ui_char = "G"; 5'd4: ui_char = "E";
+                        5'd0: ui_char = "J"; 5'd1: ui_char = "u"; 5'd2: ui_char = "d"; 5'd3: ui_char = "g"; 5'd4: ui_char = "e";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd8: begin
                     case (index)
-                        5'd0: ui_char = "G"; 5'd1: ui_char = "O"; 5'd2: ui_char = "O"; 5'd3: ui_char = "D";
+                        5'd0: ui_char = "G"; 5'd1: ui_char = "o"; 5'd2: ui_char = "o"; 5'd3: ui_char = "d";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd9: begin
                     case (index)
-                        5'd0: ui_char = "B"; 5'd1: ui_char = "A"; 5'd2: ui_char = "D";
+                        5'd0: ui_char = "B"; 5'd1: ui_char = "a"; 5'd2: ui_char = "d";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd10: begin
                     case (index)
-                        5'd0: ui_char = "M"; 5'd1: ui_char = "I"; 5'd2: ui_char = "S"; 5'd3: ui_char = "S";
+                        5'd0: ui_char = "M"; 5'd1: ui_char = "i"; 5'd2: ui_char = "s"; 5'd3: ui_char = "s";
                         default: ui_char = " ";
                     endcase
                 end
@@ -496,7 +514,7 @@ module rhythm_video_audio (
                 end
                 5'd25: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "C"; 5'd2: ui_char = "O"; 5'd3: ui_char = "R"; 5'd4: ui_char = "E";
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "c"; 5'd2: ui_char = "o"; 5'd3: ui_char = "r"; 5'd4: ui_char = "e";
                         default: ui_char = " ";
                     endcase
                 end
@@ -520,19 +538,19 @@ module rhythm_video_audio (
                 end
                 5'd29: begin
                     case (index)
-                        5'd0: ui_char = "R"; 5'd1: ui_char = "E"; 5'd2: ui_char = "A"; 5'd3: ui_char = "D"; 5'd4: ui_char = "Y";
+                        5'd0: ui_char = "R"; 5'd1: ui_char = "e"; 5'd2: ui_char = "a"; 5'd3: ui_char = "d"; 5'd4: ui_char = "y";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd30: begin
                     case (index)
-                        5'd0: ui_char = "F"; 5'd1: ui_char = "I"; 5'd2: ui_char = "N"; 5'd3: ui_char = "I"; 5'd4: ui_char = "S"; 5'd5: ui_char = "H";
+                        5'd0: ui_char = "F"; 5'd1: ui_char = "i"; 5'd2: ui_char = "n"; 5'd3: ui_char = "i"; 5'd4: ui_char = "s"; 5'd5: ui_char = "h";
                         default: ui_char = " ";
                     endcase
                 end
                 5'd31: begin
                     case (index)
-                        5'd0: ui_char = "V"; 5'd1: ui_char = "O"; 5'd2: ui_char = "L";
+                        5'd0: ui_char = "V"; 5'd1: ui_char = "o"; 5'd2: ui_char = "l";
                         default: ui_char = " ";
                     endcase
                 end
@@ -586,56 +604,116 @@ module rhythm_video_audio (
                 end
                 6'd40: begin
                     case (index)
-                        5'd0: ui_char = "U"; 5'd1: ui_char = "D"; 5'd2: ui_char = " "; 5'd3: ui_char = "V"; 5'd4: ui_char = "O"; 5'd5: ui_char = "L";
+                        5'd0: ui_char = "8";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd41: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "0"; 5'd3: ui_char = "-"; 5'd4: ui_char = "1";
+                        5'd0: ui_char = "9";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd42: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "5"; 5'd3: ui_char = "-"; 5'd4: ui_char = "3";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "0";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd43: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "2";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "1";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd44: begin
                     case (index)
-                        5'd0: ui_char = "P"; 5'd1: ui_char = "A"; 5'd2: ui_char = "U"; 5'd3: ui_char = "S"; 5'd4: ui_char = "E";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "2";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd45: begin
                     case (index)
-                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "1"; 5'd3: ui_char = "5";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "3";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd46: begin
                     case (index)
-                        5'd0: ui_char = "A"; 5'd1: ui_char = "P"; 5'd2: ui_char = "H"; 5'd3: ui_char = "A";
-                        5'd4: ui_char = "S"; 5'd5: ui_char = "I"; 5'd6: ui_char = "A";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "4";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd47: begin
                     case (index)
-                        5'd0: ui_char = "M"; 5'd1: ui_char = "B";
+                        5'd0: ui_char = "1"; 5'd1: ui_char = "5";
                         default: ui_char = " ";
                     endcase
                 end
                 6'd48: begin
                     case (index)
+                        5'd0: ui_char = "U"; 5'd1: ui_char = "-"; 5'd2: ui_char = "D"; 5'd3: ui_char = " "; 5'd4: ui_char = "V"; 5'd5: ui_char = "o"; 5'd6: ui_char = "l";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd49: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "0"; 5'd3: ui_char = "-"; 5'd4: ui_char = "1";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd50: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "3"; 5'd3: ui_char = "-"; 5'd4: ui_char = "5";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd51: begin
+                    case (index)
+                        5'd0: ui_char = "P"; 5'd1: ui_char = "a"; 5'd2: ui_char = "u"; 5'd3: ui_char = "s"; 5'd4: ui_char = "e";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd52: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "1"; 5'd3: ui_char = "5";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd53: begin
+                    case (index)
+                        5'd0: ui_char = "A"; 5'd1: ui_char = "p"; 5'd2: ui_char = "h"; 5'd3: ui_char = "a";
+                        5'd4: ui_char = "s"; 5'd5: ui_char = "i"; 5'd6: ui_char = "a";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd54: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "o"; 5'd2: ui_char = "C";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd55: begin
+                    case (index)
                         5'd0: ui_char = "M"; 5'd1: ui_char = "I"; 5'd2: ui_char = "D"; 5'd3: ui_char = "I";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd56: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "1"; 5'd3: ui_char = "4"; 5'd4: ui_char = "-"; 5'd5: ui_char = "1"; 5'd6: ui_char = "5";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd57: begin
+                    case (index)
+                        5'd0: ui_char = "M"; 5'd1: ui_char = "u"; 5'd2: ui_char = "t"; 5'd3: ui_char = "e";
+                        default: ui_char = " ";
+                    endcase
+                end
+                6'd58: begin
+                    case (index)
+                        5'd0: ui_char = "S"; 5'd1: ui_char = "W"; 5'd2: ui_char = "2";
                         default: ui_char = " ";
                     endcase
                 end
@@ -683,6 +761,22 @@ module rhythm_video_audio (
                 "W": case (row) 3'd0: ui_glyph_row=5'b10001; 3'd1: ui_glyph_row=5'b10001; 3'd2: ui_glyph_row=5'b10001; 3'd3: ui_glyph_row=5'b10101; 3'd4: ui_glyph_row=5'b10101; 3'd5: ui_glyph_row=5'b11011; 3'd6: ui_glyph_row=5'b10001; endcase
                 "X": case (row) 3'd0: ui_glyph_row=5'b10001; 3'd1: ui_glyph_row=5'b01010; 3'd2: ui_glyph_row=5'b00100; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b01010; 3'd6: ui_glyph_row=5'b10001; endcase
                 "Y": case (row) 3'd0: ui_glyph_row=5'b10001; 3'd1: ui_glyph_row=5'b01010; 3'd2: ui_glyph_row=5'b00100; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b00100; 3'd6: ui_glyph_row=5'b00100; endcase
+                "a": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01110; 3'd3: ui_glyph_row=5'b00001; 3'd4: ui_glyph_row=5'b01111; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b01111; endcase
+                "c": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01110; 3'd3: ui_glyph_row=5'b10000; 3'd4: ui_glyph_row=5'b10000; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b01110; endcase
+                "d": case (row) 3'd0: ui_glyph_row=5'b00001; 3'd1: ui_glyph_row=5'b00001; 3'd2: ui_glyph_row=5'b01101; 3'd3: ui_glyph_row=5'b10011; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10011; 3'd6: ui_glyph_row=5'b01101; endcase
+                "e": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01110; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b11110; 3'd5: ui_glyph_row=5'b10000; 3'd6: ui_glyph_row=5'b01110; endcase
+                "g": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01111; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b01111; 3'd5: ui_glyph_row=5'b00001; 3'd6: ui_glyph_row=5'b01110; endcase
+                "h": case (row) 3'd0: ui_glyph_row=5'b10000; 3'd1: ui_glyph_row=5'b10000; 3'd2: ui_glyph_row=5'b10110; 3'd3: ui_glyph_row=5'b11001; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b10001; endcase
+                "i": case (row) 3'd0: ui_glyph_row=5'b00100; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01100; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b00100; 3'd6: ui_glyph_row=5'b01110; endcase
+                "l": case (row) 3'd0: ui_glyph_row=5'b01100; 3'd1: ui_glyph_row=5'b00100; 3'd2: ui_glyph_row=5'b00100; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b00100; 3'd6: ui_glyph_row=5'b01110; endcase
+                "n": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b10110; 3'd3: ui_glyph_row=5'b11001; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b10001; endcase
+                "o": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01110; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10001; 3'd6: ui_glyph_row=5'b01110; endcase
+                "p": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b11110; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b11110; 3'd5: ui_glyph_row=5'b10000; 3'd6: ui_glyph_row=5'b10000; endcase
+                "r": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b10110; 3'd3: ui_glyph_row=5'b11001; 3'd4: ui_glyph_row=5'b10000; 3'd5: ui_glyph_row=5'b10000; 3'd6: ui_glyph_row=5'b10000; endcase
+                "s": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b01111; 3'd3: ui_glyph_row=5'b10000; 3'd4: ui_glyph_row=5'b01110; 3'd5: ui_glyph_row=5'b00001; 3'd6: ui_glyph_row=5'b11110; endcase
+                "t": case (row) 3'd0: ui_glyph_row=5'b00100; 3'd1: ui_glyph_row=5'b00100; 3'd2: ui_glyph_row=5'b11111; 3'd3: ui_glyph_row=5'b00100; 3'd4: ui_glyph_row=5'b00100; 3'd5: ui_glyph_row=5'b00101; 3'd6: ui_glyph_row=5'b00010; endcase
+                "u": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b10001; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b10001; 3'd5: ui_glyph_row=5'b10011; 3'd6: ui_glyph_row=5'b01101; endcase
+                "y": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b10001; 3'd3: ui_glyph_row=5'b10001; 3'd4: ui_glyph_row=5'b01111; 3'd5: ui_glyph_row=5'b00001; 3'd6: ui_glyph_row=5'b01110; endcase
                 "-": case (row) 3'd0: ui_glyph_row=5'b00000; 3'd1: ui_glyph_row=5'b00000; 3'd2: ui_glyph_row=5'b00000; 3'd3: ui_glyph_row=5'b11111; 3'd4: ui_glyph_row=5'b00000; 3'd5: ui_glyph_row=5'b00000; 3'd6: ui_glyph_row=5'b00000; endcase
                 default: ui_glyph_row = 5'b00000;
             endcase
@@ -735,17 +829,16 @@ module rhythm_video_audio (
         reg [4:0] row_bits;
         begin
             ui_bcd5_pixel = 1'b0;
-            if (x >= x0 && y >= y0 && x < x0 + 10'd60 && y < y0 + 10'd14) begin
+            if (x >= x0 && y >= y0 && x < x0 + 10'd48 && y < y0 + 10'd14) begin
                 dx = x - x0;
                 dy = y - y0;
                 char_index = dx / 10'd12;
                 glyph_x = (dx >> 1) % 3'd6;
                 glyph_y = dy >> 1;
                 case (char_index)
-                    5'd0: nibble = bcd[19:16];
-                    5'd1: nibble = bcd[15:12];
-                    5'd2: nibble = bcd[11:8];
-                    5'd3: nibble = bcd[7:4];
+                    5'd0: nibble = bcd[15:12];
+                    5'd1: nibble = bcd[11:8];
+                    5'd2: nibble = bcd[7:4];
                     default: nibble = bcd[3:0];
                 endcase
                 ch = "0" + {4'd0, nibble};
@@ -1529,8 +1622,12 @@ module rhythm_video_audio (
     end
 
     always @(posedge clk100) begin
-        if (mb_mode) begin
-            if (mb_an_status[7:5] == 3'b000) begin
+        if (reset_active) begin
+            mb_note_tracks <= 96'd0;
+            mb_hold_tracks <= 96'd0;
+            mb_button_tracks <= 3'd0;
+        end else if (mb_mode) begin
+            if (mb_an_status[7:5] == 3'b001) begin
                 case (mb_an_status[4:0])
                     5'd0:  mb_note_tracks[7:0]    <= mb_seg_status;
                     5'd1:  mb_note_tracks[15:8]   <= mb_seg_status;
@@ -1574,13 +1671,42 @@ module rhythm_video_audio (
     end
 
     always @(*) begin
-        diag_led[2:0] = ui_buttons;
-        diag_led[4:3] = mb_game_state;
-        diag_led[5] = |(ui_note_tracks[31:29] | ui_note_tracks[63:61] | ui_note_tracks[95:93]);
-        diag_led[7:6] = 2'b00;
-        diag_led[9:8] = ui_song_select;
-        diag_led[11:10] = mb_rating_code;
-        diag_led[15:12] = mb_volume_level;
+        if (!ui_audio_enabled) begin
+            led_pattern = slow_count[25] ? 16'h03c0 : 16'h0180;
+            led_level = 8'd12 + (led_breathe >> 1);
+        end else if (ui_finished) begin
+            led_pattern = 16'hffff;
+            led_level = 8'd28 + (led_breathe >> 1);
+        end else if (ui_paused) begin
+            led_pattern = slow_count[25] ? 16'haaaa : 16'h5555;
+            led_level = 8'd16 + (led_breathe >> 1);
+        end else begin
+            case (slow_count[24:22])
+                3'd0: led_pattern = 16'h0180;
+                3'd1: led_pattern = 16'h03c0;
+                3'd2: led_pattern = 16'h07e0;
+                3'd3: led_pattern = 16'h0ff0;
+                3'd4: led_pattern = 16'h1ff8;
+                3'd5: led_pattern = 16'h3ffc;
+                3'd6: led_pattern = 16'h7ffe;
+                default: led_pattern = 16'hffff;
+            endcase
+            led_level = 8'd28 + (led_breathe >> 2);
+            if (led_note_near_judge) begin
+                led_pattern = {led_left_active ? 4'hf : 4'h0,
+                               led_mid_active ? 8'hff : 8'h00,
+                               led_right_active ? 4'hf : 4'h0};
+                led_level = 8'd176 + (led_breathe >> 2);
+            end
+            if (ui_buttons != 3'd0) begin
+                led_pattern = {ui_buttons[0] ? 4'hf : 4'h0,
+                               ui_buttons[1] ? 8'hff : 8'h00,
+                               ui_buttons[2] ? 4'hf : 4'h0};
+                led_level = 8'hff;
+            end
+        end
+        diag_led = (led_pwm < led_level) ? led_pattern : 16'd0;
+
         if (!ui_audio_enabled || ui_finished) begin
             diag_rgb = 6'b111_111; // ready/finish: white
         end else begin
@@ -1604,34 +1730,30 @@ module rhythm_video_audio (
         game_hold_pixel = 1'b0;
         game_button_pixel = 1'b0;
         ui_text_pixel = ui_text2_pixel(5'd0, h_count, v_count, 10'd24, 10'd24) ||   // SONG
-                        ui_text2_pixel(6'd41, h_count, v_count, 10'd92, 10'd24) ||  // SW0-1
+                        ui_text2_pixel(6'd49, h_count, v_count, 10'd92, 10'd24) ||  // SW0-1
                         ui_text2_pixel(5'd1, h_count, v_count, 10'd32, 10'd58) ||   // CANON
                         ui_text2_pixel(5'd2, h_count, v_count, 10'd32, 10'd102) ||  // FADE
-                        ui_text2_pixel(6'd46, h_count, v_count, 10'd32, 10'd140) || // APHASIA
+                        ui_text2_pixel(6'd53, h_count, v_count, 10'd32, 10'd140) || // Aphasia
                         ui_text2_pixel(5'd3, h_count, v_count, 10'd24, 10'd170) ||  // KEYS
                         ui_text2_pixel(5'd4, h_count, v_count, 10'd32, 10'd204) ||  // L C R
-                        ui_text2_pixel(5'd11, h_count, v_count, 10'd24, 10'd288) || // VS1003
-                        ui_text2_pixel(6'd47, h_count, v_count, 10'd104, 10'd288) || // MB
-                        ui_text2_pixel(6'd48, h_count, v_count, 10'd24, 10'd322) || // MIDI
-                        ui_text2_pixel(5'd14, h_count, v_count, 10'd96, 10'd322) || // ON
+                        ui_text2_pixel(6'd57, h_count, v_count, 10'd24, 10'd244) || // Mute
+                        ui_text2_pixel(6'd58, h_count, v_count, 10'd92, 10'd244) || // SW2
+                        ui_text2_pixel(6'd51, h_count, v_count, 10'd24, 10'd270) || // Pause
+                        ui_text2_pixel(6'd52, h_count, v_count, 10'd96, 10'd270) || // SW15
+                        ui_text2_pixel(5'd11, h_count, v_count, 10'd24, 10'd306) || // VS1003
+                        ui_text2_pixel(6'd54, h_count, v_count, 10'd104, 10'd306) || // SoC
+                        ui_text2_pixel(6'd55, h_count, v_count, 10'd24, 10'd334) || // MIDI
+                        ui_text2_pixel(5'd14, h_count, v_count, 10'd96, 10'd334) || // ON
                         ui_text2_pixel(5'd5, h_count, v_count, 10'd480, 10'd24) ||  // SPEED
-                        ui_text2_pixel(6'd42, h_count, v_count, 10'd548, 10'd24) || // SW5-3
+                        ui_text2_pixel(6'd50, h_count, v_count, 10'd548, 10'd24) || // SW3-5
                         ui_text2_pixel(game_speed_text_id, h_count, v_count, 10'd496, 10'd58) ||
-                        ui_text2_pixel(5'd15, h_count, v_count, 10'd480, 10'd94) || // BPM
-                        ui_text2_pixel(5'd16, h_count, v_count, 10'd496, 10'd128) || // 90
-                        ui_text2_pixel(5'd31, h_count, v_count, 10'd548, 10'd94) || // VOL
-                        ui_text2_pixel(ui_volume_text_id, h_count, v_count, 10'd588, 10'd128) ||
+                        ui_text2_pixel(5'd31, h_count, v_count, 10'd480, 10'd94) || // Vol
+                        ui_text2_pixel(6'd48, h_count, v_count, 10'd536, 10'd94) || // U-D Vol
+                        ui_text2_pixel(ui_volume_text_id, h_count, v_count, 10'd496, 10'd128) ||
                         ui_text2_pixel(5'd25, h_count, v_count, 10'd480, 10'd174) || // SCORE
                         ui_bcd5_pixel(ui_score_bcd, h_count, v_count, 10'd496, 10'd206) ||
                         ui_text2_pixel(5'd7, h_count, v_count, 10'd480, 10'd252) || // JUDGE
-                        ui_text2_pixel(ui_judgement_text_id, h_count, v_count, 10'd496, 10'd286) ||
-                        ui_text2_pixel(6'd44, h_count, v_count, 10'd480, 10'd330) || // PAUSE
-                        ui_text2_pixel(6'd45, h_count, v_count, 10'd548, 10'd330) || // SW15
-                        ui_text2_pixel(5'd3, h_count, v_count, 10'd480, 10'd360) || // KEYS
-                        ui_text2_pixel(5'd26, h_count, v_count, 10'd496, 10'd388) || // P17 L
-                        ui_text2_pixel(5'd27, h_count, v_count, 10'd496, 10'd416) || // N17 C
-                        ui_text2_pixel(5'd28, h_count, v_count, 10'd496, 10'd436) || // M17 R
-                        ui_text2_pixel(6'd40, h_count, v_count, 10'd496, 10'd456);   // UD VOL
+                        ui_text2_pixel(ui_judgement_text_id, h_count, v_count, 10'd496, 10'd286);
         ui_box_pixel = ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd48 && v_count < 10'd88) &&
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd51 || v_count >= 10'd85)) ||
                        ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd92 && v_count < 10'd132) &&
@@ -1640,8 +1762,8 @@ module rhythm_video_audio (
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd139 || v_count >= 10'd163)) ||
                        ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd194 && v_count < 10'd232) &&
                         (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd197 || v_count >= 10'd229)) ||
-                       ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd312 && v_count < 10'd354) &&
-                        (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd315 || v_count >= 10'd351)) ||
+                       ((h_count >= 10'd20 && h_count < 10'd156 && v_count >= 10'd298 && v_count < 10'd358) &&
+                        (h_count < 10'd23 || h_count >= 10'd153 || v_count < 10'd301 || v_count >= 10'd355)) ||
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd48 && v_count < 10'd82) &&
                         (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd51 || v_count >= 10'd79)) ||
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd118 && v_count < 10'd152) &&
@@ -1649,22 +1771,95 @@ module rhythm_video_audio (
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd198 && v_count < 10'd232) &&
                         (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd201 || v_count >= 10'd229)) ||
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd278 && v_count < 10'd320) &&
-                        (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd281 || v_count >= 10'd317)) ||
-                       ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd382 && v_count < 10'd470) &&
-                        (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd385 || v_count >= 10'd467));
+                        (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd281 || v_count >= 10'd317));
         ui_line_pixel = (h_count == 10'd176 || h_count == 10'd463);
         ui_selected_pixel = (((mb_mode && ui_song_select == 2'd0) || (!mb_mode && canon_mode)) &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd52 && v_count < 10'd84) ||
                             (((mb_mode && ui_song_select == 2'd1) || (!mb_mode && edm_mode)) &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd96 && v_count < 10'd128) ||
                             (mb_mode && ui_song_select == 2'd2 &&
-                             h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd140 && v_count < 10'd162) ||
-                            (vs1003_demo_enabled && h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd316 && v_count < 10'd350);
+                             h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd140 && v_count < 10'd162);
 
         if (!active_video) begin
             vga_r = 4'h0;
             vga_g = 4'h0;
             vga_b = 4'h0;
+        end else if (h_count >= 10'd200 && h_count < 10'd440 &&
+                     v_count >= 10'd32 && v_count < 10'd416) begin
+            game_row = (v_count - 10'd32) / 10'd12;
+            game_lane = (h_count - 10'd200) / 10'd80;
+            case (game_lane)
+                3'd0: game_lane_mask = ui_note_tracks[31:0];
+                3'd1: game_lane_mask = ui_note_tracks[63:32];
+                3'd2: game_lane_mask = ui_note_tracks[95:64];
+                default: game_lane_mask = 32'd0;
+            endcase
+            case (game_lane)
+                3'd0: game_hold_lane_mask = ui_hold_tracks[31:0];
+                3'd1: game_hold_lane_mask = ui_hold_tracks[63:32];
+                3'd2: game_hold_lane_mask = ui_hold_tracks[95:64];
+                default: game_hold_lane_mask = 32'd0;
+            endcase
+            game_note_pixel = game_lane_mask[game_row[4:0]];
+            game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
+            game_button_pixel = ((h_count - 10'd200) % 10'd80 >= 10'd8) &&
+                                ((h_count - 10'd200) % 10'd80 < 10'd72) &&
+                                (v_count >= 10'd338) && (v_count < 10'd378);
+
+            if (((h_count - 10'd200) % 10'd80 < 10'd3) ||
+                h_count == 10'd439) begin
+                vga_r = 4'h7;
+                vga_g = 4'h7;
+                vga_b = 4'h7;
+            end else if (v_count >= 10'd358 && v_count < 10'd362) begin
+                case (ui_judgement)
+                    4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
+                    4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
+                    4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
+                    default: begin vga_r = 4'hc; vga_g = 4'hc; vga_b = 4'hc; end
+                endcase
+            end else if (game_note_pixel &&
+                         ((h_count - 10'd200) % 10'd80 >= 10'd6) &&
+                         ((h_count - 10'd200) % 10'd80 < 10'd76) &&
+                         ((v_count - 10'd32) % 10'd12 >= 10'd2) &&
+                         ((v_count - 10'd32) % 10'd12 < 10'd10)) begin
+                vga_r = 4'hf;
+                vga_g = 4'hf;
+                vga_b = 4'hf;
+            end else if (game_hold_pixel &&
+                         ((h_count - 10'd200) % 10'd80 >= 10'd6) &&
+                         ((h_count - 10'd200) % 10'd80 < 10'd76)) begin
+                vga_r = hold_blend_r;
+                vga_g = hold_blend_g;
+                vga_b = hold_blend_b;
+            end else if (game_button_pixel) begin
+                if (ui_buttons[game_lane]) begin
+                    case (ui_judgement)
+                        4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
+                        4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
+                        4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
+                        default: begin vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf; end
+                    endcase
+                end else if (((h_count - 10'd200) % 10'd80 < 10'd12) ||
+                             ((h_count - 10'd200) % 10'd80 >= 10'd68) ||
+                             (v_count < 10'd342) || (v_count >= 10'd374)) begin
+                    vga_r = 4'hd;
+                    vga_g = 4'hd;
+                    vga_b = 4'hd;
+                end else begin
+                    vga_r = 4'h0;
+                    vga_g = 4'h0;
+                    vga_b = 4'h0;
+                end
+            end else if ((v_count - 10'd32) % 10'd48 < 10'd2) begin
+                vga_r = 4'h2;
+                vga_g = 4'h2;
+                vga_b = 4'h2;
+            end else begin
+                vga_r = track_bg_r;
+                vga_g = track_bg_g;
+                vga_b = track_bg_b;
+            end
         end else if (!ui_audio_enabled) begin
             if (border) begin
                 vga_r = 4'h8;
@@ -1701,10 +1896,6 @@ module rhythm_video_audio (
                 vga_g = 4'h0;
                 vga_b = 4'h0;
             end
-        end else if (border) begin
-            vga_r = 4'hf;
-            vga_g = 4'hf;
-            vga_b = 4'hf;
         end else if (h_count < 10'd176) begin
             if (ui_text_pixel) begin
                 vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf;
@@ -1749,16 +1940,66 @@ module rhythm_video_audio (
             game_note_pixel = game_lane_mask[game_row[4:0]];
             game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
             game_button_pixel = ui_buttons[game_lane] &&
-                                ((h_count - 10'd200) % 10'd80 >= 10'd26) &&
-                                ((h_count - 10'd200) % 10'd80 < 10'd54) &&
+                                ((h_count - 10'd200) % 10'd80 >= 10'd8) &&
+                                ((h_count - 10'd200) % 10'd80 < 10'd72) &&
+                                (v_count >= 10'd346) && (v_count < 10'd374);
+            if (ui_text_pixel) begin
+                vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf;
+            end else if (ui_selected_pixel) begin
+                vga_r = 4'h5; vga_g = 4'h5; vga_b = 4'h5;
+            end else if (ui_box_pixel || ui_line_pixel) begin
+                vga_r = 4'h8; vga_g = 4'h8; vga_b = 4'h8;
+            end else begin
+                vga_r = 4'h1; vga_g = 4'h1; vga_b = 4'h1;
+            end
+        end else if (h_count >= 10'd464) begin
+            if (ui_text_pixel) begin
+                vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf;
+            end else if (v_count >= 10'd284 && v_count < 10'd304 && h_count >= 10'd486 && h_count < 10'd490) begin
+                case (ui_judgement)
+                    4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
+                    4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
+                    4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
+                    default: begin vga_r = 4'h4; vga_g = 4'h4; vga_b = 4'h4; end
+                endcase
+            end else if (ui_box_pixel || ui_line_pixel) begin
+                vga_r = 4'h8; vga_g = 4'h8; vga_b = 4'h8;
+            end else begin
+                vga_r = 4'h1; vga_g = 4'h1; vga_b = 4'h1;
+            end
+        end else if (v_count >= 10'd332 && v_count < 10'd392 &&
+                     h_count >= 10'd200 && h_count < 10'd440) begin
+            game_row = (v_count - 10'd32) / 10'd12;
+            game_lane = (h_count - 10'd200) / 10'd80;
+            case (game_lane)
+                3'd0: game_lane_mask = ui_note_tracks[31:0];
+                3'd1: game_lane_mask = ui_note_tracks[63:32];
+                3'd2: game_lane_mask = ui_note_tracks[95:64];
+                default: game_lane_mask = 32'd0;
+            endcase
+            case (game_lane)
+                3'd0: game_hold_lane_mask = ui_hold_tracks[31:0];
+                3'd1: game_hold_lane_mask = ui_hold_tracks[63:32];
+                3'd2: game_hold_lane_mask = ui_hold_tracks[95:64];
+                default: game_hold_lane_mask = 32'd0;
+            endcase
+            game_note_pixel = game_lane_mask[game_row[4:0]];
+            game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
+            game_button_pixel = ui_buttons[game_lane] &&
+                                ((h_count - 10'd200) % 10'd80 >= 10'd8) &&
+                                ((h_count - 10'd200) % 10'd80 < 10'd72) &&
                                 (v_count >= 10'd346) && (v_count < 10'd374);
 
             if ((h_count - 10'd200) % 10'd80 < 10'd3) begin
                 vga_r = 4'h7; vga_g = 4'h7; vga_b = 4'h7;
             end else if (game_note_pixel) begin
                 vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf;
-            end else if (game_hold_pixel) begin
-                vga_r = 4'he; vga_g = 4'he; vga_b = 4'he;
+            end else if (game_hold_pixel &&
+                         ((h_count - 10'd200) % 10'd80 >= 10'd6) &&
+                         ((h_count - 10'd200) % 10'd80 < 10'd76)) begin
+                vga_r = hold_blend_r;
+                vga_g = hold_blend_g;
+                vga_b = hold_blend_b;
             end else if (game_button_pixel) begin
                 case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
@@ -1797,8 +2038,8 @@ module rhythm_video_audio (
             game_note_pixel = game_lane_mask[game_row[4:0]];
             game_hold_pixel = game_hold_lane_mask[game_row[4:0]];
             game_button_pixel = ui_buttons[game_lane] &&
-                                ((h_count - 10'd200) % 10'd80 >= 10'd26) &&
-                                ((h_count - 10'd200) % 10'd80 < 10'd54) &&
+                                ((h_count - 10'd200) % 10'd80 >= 10'd8) &&
+                                ((h_count - 10'd200) % 10'd80 < 10'd72) &&
                                 (v_count >= 10'd346) && (v_count < 10'd374);
 
             if ((h_count - 10'd200) % 10'd80 < 10'd3) begin
@@ -1813,10 +2054,12 @@ module rhythm_video_audio (
                 vga_r = 4'hf;
                 vga_g = 4'hf;
                 vga_b = 4'hf;
-            end else if (game_hold_pixel) begin
-                vga_r = 4'he;
-                vga_g = 4'he;
-                vga_b = 4'he;
+            end else if (game_hold_pixel &&
+                         ((h_count - 10'd200) % 10'd80 >= 10'd6) &&
+                         ((h_count - 10'd200) % 10'd80 < 10'd76)) begin
+                vga_r = hold_blend_r;
+                vga_g = hold_blend_g;
+                vga_b = hold_blend_b;
             end else if (game_button_pixel) begin
                 case (ui_judgement)
                     4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
@@ -1828,21 +2071,6 @@ module rhythm_video_audio (
                 vga_r = track_bg_r;
                 vga_g = track_bg_g;
                 vga_b = track_bg_b;
-            end
-        end else if (v_count >= 10'd424 && v_count < 10'd448 &&
-                     h_count >= 10'd200 && h_count < 10'd440) begin
-            game_lane = (h_count - 10'd200) / 10'd80;
-            if (ui_buttons[game_lane]) begin
-                case (ui_judgement)
-                    4'd2: begin vga_r = 4'h2; vga_g = 4'hf; vga_b = 4'h2; end
-                    4'd1: begin vga_r = 4'h2; vga_g = 4'h6; vga_b = 4'hf; end
-                    4'd0: begin vga_r = 4'hf; vga_g = 4'h1; vga_b = 4'h1; end
-                    default: begin vga_r = 4'hf; vga_g = 4'hf; vga_b = 4'hf; end
-                endcase
-            end else begin
-                vga_r = 4'h1;
-                vga_g = 4'h1;
-                vga_b = 4'h1;
             end
         end else begin
             vga_r = 4'h0;
@@ -1860,49 +2088,57 @@ module album_art_track_rom (
     input wire valid,
     output reg [11:0] rgb
 );
+    // Store three 120x192 indexed covers and scale each pixel by 2x on VGA.
+    // The visible area remains 240x384, but the source art has more detail
+    // than the previous 80x128 version.
     localparam ART_X0 = 10'd200;
     localparam ART_Y0 = 10'd32;
     localparam ART_WIDTH = 17'd120;
-    localparam ART_PIXELS = 17'd23040;
+    localparam ART_PIXELS_PER_SONG = 17'd23040;
+    localparam ART_PIXELS = 17'd69120;
 
-    (* rom_style = "block" *) reg [7:0] canon_index [0:ART_PIXELS-1];
-    (* rom_style = "block" *) reg [7:0] fade_index [0:ART_PIXELS-1];
-    (* rom_style = "block" *) reg [7:0] aphasia_index [0:ART_PIXELS-1];
-    reg [11:0] canon_palette [0:63];
-    reg [11:0] fade_palette [0:63];
-    reg [11:0] aphasia_palette [0:63];
-    wire [8:0] art_row = (pixel_y - ART_Y0) >> 1;
+    (* ram_style = "block" *) reg [3:0] art_index_mem [0:ART_PIXELS-1];
+    reg [11:0] canon_palette [0:15];
+    reg [11:0] fade_palette [0:15];
+    reg [11:0] aphasia_palette [0:15];
+    wire [7:0] art_row = (pixel_y - ART_Y0) >> 1;
     wire [6:0] art_col = (pixel_x - ART_X0) >> 1;
     wire [16:0] art_row_times_120 =
-        {1'b0, art_row, 7'b0} - {5'b0, art_row, 3'b0};
+        {art_row, 6'b0} + {art_row, 5'b0} + {art_row, 4'b0} + {art_row, 3'b0};
     reg [16:0] art_addr = 17'd0;
-    reg [5:0] art_index = 6'd0;
+    reg [3:0] art_index = 4'd0;
+    reg [1:0] song_select_d = 2'd0;
 
     initial begin
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/canon_track_bg_index.mem", canon_index);
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/canon_track_bg_palette.mem", canon_palette);
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/fade_track_bg_index.mem", fade_index);
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/fade_track_bg_palette.mem", fade_palette);
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/aphasia_track_bg_index.mem", aphasia_index);
-        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/aphasia_track_bg_palette.mem", aphasia_palette);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/track_bg_120_all_index.mem", art_index_mem);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/canon_track_bg_120_palette.mem", canon_palette);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/fade_track_bg_120_palette.mem", fade_palette);
+        $readmemh("F:/FPGA/mircoCom/Genneral/Mini_IO/generated/album_art/aphasia_track_bg_120_palette.mem", aphasia_palette);
     end
 
     always @(*) begin
-        art_addr = art_row_times_120 + {10'd0, art_col};
+        case (song_select)
+            2'd2: art_addr = 17'd46080 + art_row_times_120 + {10'd0, art_col};
+            2'd1: art_addr = ART_PIXELS_PER_SONG + art_row_times_120 + {10'd0, art_col};
+            default: art_addr = art_row_times_120 + {10'd0, art_col};
+        endcase
     end
 
     always @(posedge clk) begin
-        if (!valid) begin
-            art_index <= 6'd0;
+        if (valid) begin
+            art_index <= art_index_mem[art_addr];
+        end
+    end
+
+    always @(posedge clk) begin
+        song_select_d <= song_select;
+        if (!valid || song_select == 2'd3 || song_select_d == 2'd3) begin
             rgb <= 12'h000;
-        end else if (song_select == 2'd2) begin
-            art_index <= aphasia_index[art_addr][5:0];
+        end else if (song_select_d == 2'd2) begin
             rgb <= aphasia_palette[art_index];
-        end else if (song_select == 2'd1) begin
-            art_index <= fade_index[art_addr][5:0];
+        end else if (song_select_d == 2'd1) begin
             rgb <= fade_palette[art_index];
         end else begin
-            art_index <= canon_index[art_addr][5:0];
             rgb <= canon_palette[art_index];
         end
     end
@@ -3140,13 +3376,13 @@ module rhythm_mb_sevenseg (
     input wire reset,
     input wire [19:0] score_bcd,
     input wire [3:0] judgement,
+    input wire ready,
     input wire paused,
     input wire finished,
     output reg [7:0] seg,
     output reg [7:0] an
 );
     reg [16:0] refresh = 17'd0;
-    reg [3:0] nibble = 4'd0;
 
     function [7:0] digit_seg;
         input [3:0] digit;
@@ -3164,7 +3400,7 @@ module rhythm_mb_sevenseg (
                 4'd9: digit_seg = 8'b1001_0000;
                 4'ha: digit_seg = 8'b1000_1000; // A/good
                 4'hb: digit_seg = 8'b1000_0011; // b/bad
-                4'hc: digit_seg = 8'b1100_1000; // M/miss
+                4'hc: digit_seg = 8'b1100_0110; // C
                 4'hd: digit_seg = 8'b1010_0001; // d/done
                 4'he: digit_seg = 8'b1000_0110; // E/finish
                 4'hf: digit_seg = 8'b1000_1100; // P/pause
@@ -3173,14 +3409,55 @@ module rhythm_mb_sevenseg (
         end
     endfunction
 
-    function [3:0] judge_digit;
+    function [7:0] grade_seg;
+        input [15:0] score;
+        begin
+            if (score >= 16'h9999) begin
+                grade_seg = digit_seg(4'd5); // S
+            end else if (score >= 16'h9500) begin
+                grade_seg = digit_seg(4'ha); // A
+            end else if (score >= 16'h8500) begin
+                grade_seg = digit_seg(4'hb); // b
+            end else if (score >= 16'h7500) begin
+                grade_seg = digit_seg(4'hc); // C
+            end else if (score >= 16'h6000) begin
+                grade_seg = digit_seg(4'hd); // d
+            end else begin
+                grade_seg = 8'b1000_1110; // F
+            end
+        end
+    endfunction
+
+    function [7:0] judge_seg;
         input [3:0] value;
+        input [1:0] position;
         begin
             case (value)
-                4'd2: judge_digit = 4'ha;
-                4'd1: judge_digit = 4'hb;
-                4'd0: judge_digit = 4'hc;
-                default: judge_digit = 4'd0;
+                4'd2: begin
+                    case (position)
+                        2'd0: judge_seg = digit_seg(4'hd); // d
+                        2'd1: judge_seg = digit_seg(4'd0); // O
+                        2'd2: judge_seg = digit_seg(4'd0); // O
+                        default: judge_seg = digit_seg(4'd6); // G
+                    endcase
+                end
+                4'd1: begin
+                    case (position)
+                        2'd0: judge_seg = digit_seg(4'hd); // d
+                        2'd1: judge_seg = digit_seg(4'ha); // A
+                        2'd2: judge_seg = digit_seg(4'hb); // b
+                        default: judge_seg = 8'hff;
+                    endcase
+                end
+                4'd0: begin
+                    case (position)
+                        2'd0: judge_seg = digit_seg(4'd5); // S
+                        2'd1: judge_seg = digit_seg(4'd5); // S
+                        2'd2: judge_seg = digit_seg(4'd1); // i
+                        default: judge_seg = digit_seg(4'he); // E as M approximation
+                    endcase
+                end
+                default: judge_seg = 8'hff;
             endcase
         end
     endfunction
@@ -3194,17 +3471,21 @@ module rhythm_mb_sevenseg (
     end
 
     always @(*) begin
-        case (refresh[16:14])
-            3'd0: begin an = 8'b1111_1110; nibble = score_bcd[3:0]; end
-            3'd1: begin an = 8'b1111_1101; nibble = score_bcd[7:4]; end
-            3'd2: begin an = 8'b1111_1011; nibble = score_bcd[11:8]; end
-            3'd3: begin an = 8'b1111_0111; nibble = score_bcd[15:12]; end
-            3'd4: begin an = 8'b1110_1111; nibble = score_bcd[19:16]; end
-            3'd5: begin an = 8'b1101_1111; nibble = judge_digit(judgement); end
-            3'd6: begin an = 8'b1011_1111; nibble = finished ? 4'he : 4'd0; end
-            default: begin an = 8'b0111_1111; nibble = paused ? 4'hf : 4'd0; end
-        endcase
-        seg = digit_seg(nibble);
+        if (ready) begin
+            an = 8'hff;
+            seg = 8'hff;
+        end else begin
+            case (refresh[16:14])
+                3'd0: begin an = 8'b1111_1110; seg = digit_seg(score_bcd[3:0]); end
+                3'd1: begin an = 8'b1111_1101; seg = digit_seg(score_bcd[7:4]); end
+                3'd2: begin an = 8'b1111_1011; seg = digit_seg(score_bcd[11:8]); end
+                3'd3: begin an = 8'b1111_0111; seg = digit_seg(score_bcd[15:12]); end
+                3'd4: begin an = 8'b1110_1111; seg = finished ? grade_seg(score_bcd[15:0]) : judge_seg(judgement, 2'd0); end
+                3'd5: begin an = 8'b1101_1111; seg = finished ? grade_seg(score_bcd[15:0]) : judge_seg(judgement, 2'd1); end
+                3'd6: begin an = 8'b1011_1111; seg = finished ? grade_seg(score_bcd[15:0]) : judge_seg(judgement, 2'd2); end
+                default: begin an = 8'b0111_1111; seg = finished ? grade_seg(score_bcd[15:0]) : judge_seg(judgement, 2'd3); end
+            endcase
+        end
     end
 endmodule
 

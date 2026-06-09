@@ -1,0 +1,76 @@
+# MicroBlaze rhythm chart: Faded main lead
+# Generated from the same MIDI file used by VS1003B playback.
+# Time values are judgement times in game milliseconds.
+# Onsets follow the main melody; lanes are gameplay-balanced L/C/R.
+# Climax notes may add a simultaneous second lane; long notes may become holds.
+# Source: music/midi/faded_main_melody.mid
+# Channels: 1
+# Filter: min_gap_ms=250, base_notes=58, doubles=5
+
+@offset_ms 2200
+@bpm 90
+@beats_per_bar 4
+
+3867ms L
+4533ms C
+4865ms R
+5532ms L
+5867ms C
+6865ms R
+7200ms L
+8200ms C
+8533ms R
+11200ms L
+11533ms C
+13199ms R
+13533ms L
+15865ms C
+16200ms R
+17200ms L hold 1332ms
+18533ms C
+19200ms R hold 1800ms
+21200ms L
+21867ms C
+24533ms R
+25200ms L
+25532ms C
+26200ms R
+26533ms L
+27200ms C
+28533ms R
+29533ms L hold 1800ms
+33865ms C
+34867ms R hold 1800ms
+37867ms L
+39200ms C
+39532ms R
+44533ms L
+44867ms C
+48532ms C
+48532ms R
+48867ms L hold 999ms
+50200ms C
+50867ms R
+52200ms L
+52532ms C
+52532ms R
+53200ms R
+53533ms L
+54200ms C
+54867ms R
+55533ms L
+55533ms C
+55867ms C hold 1800ms
+58865ms R
+59200ms L
+60533ms C
+60865ms L
+60865ms R
+61532ms L
+62533ms C
+63200ms R
+63533ms L
+64200ms C
+64200ms R
+64533ms R
+65533ms L

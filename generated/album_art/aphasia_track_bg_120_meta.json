@@ -1,0 +1,21 @@
+{
+  "mode": "indexed",
+  "index_mem": "generated\\album_art\\aphasia_track_bg_120_index.mem",
+  "palette_mem": "generated\\album_art\\aphasia_track_bg_120_palette.mem",
+  "preview": "generated\\album_art\\aphasia_track_bg_120_preview.png",
+  "colors": 16,
+  "index_bits": 4,
+  "index_hex_digits": 2,
+  "verilog": {
+    "ART_WIDTH": 120,
+    "ART_HEIGHT": 192,
+    "ART_PIXELS": 23040,
+    "ART_COLORS": 16,
+    "ART_INDEX_BITS": 4
+  },
+  "source": "generated\\album_art\\aphasia_3x4_square.png",
+  "width": 120,
+  "height": 192,
+  "pixels": 23040,
+  "fit": "cover"
+}

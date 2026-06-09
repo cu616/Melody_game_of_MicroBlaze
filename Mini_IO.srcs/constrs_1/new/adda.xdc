@@ -52,12 +52,6 @@ set_property IOSTANDARD LVCMOS33 [get_ports {VGA_B[*]}]
 set_property IOSTANDARD LVCMOS33 [get_ports VGA_HS]
 set_property IOSTANDARD LVCMOS33 [get_ports VGA_VS]
 
-# Nexys4 DDR J8 mono audio output
-set_property PACKAGE_PIN A11 [get_ports AUD_PWM]
-set_property PACKAGE_PIN D12 [get_ports AUD_SD]
-set_property IOSTANDARD LVCMOS33 [get_ports AUD_PWM]
-set_property IOSTANDARD LVCMOS33 [get_ports AUD_SD]
-
 # Nexys4 DDR user LEDs, seven segment display, and RGB LEDs.
 set_property PACKAGE_PIN H17 [get_ports {led_16bits_tri_o[0]}]
 set_property PACKAGE_PIN K15 [get_ports {led_16bits_tri_o[1]}]

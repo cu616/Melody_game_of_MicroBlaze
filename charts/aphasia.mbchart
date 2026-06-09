@@ -1,0 +1,70 @@
+# MicroBlaze rhythm chart: Aphasia high lead
+# Generated from the same MIDI file used by VS1003B playback.
+# Time values are judgement times in game milliseconds.
+# Onsets follow the main melody; lanes are gameplay-balanced L/C/R.
+# Climax notes may add a simultaneous second lane; long notes may become holds.
+# Source: music/midi/aphasia_main_33s_56s.mid
+# Channels: 0
+# Filter: min_gap_ms=250, base_notes=53, doubles=4
+
+@offset_ms 2200
+@bpm 128
+@beats_per_bar 4
+
+2200ms L
+2669ms C
+3138ms R hold 846ms
+4075ms L
+4544ms C
+5012ms R hold 846ms
+5950ms L
+6419ms C
+6888ms R hold 846ms
+7825ms L
+8294ms C
+8762ms R
+9231ms L
+9700ms C
+10169ms R
+10638ms L hold 846ms
+11575ms C
+12044ms R
+12512ms L hold 846ms
+13450ms C
+13919ms R
+14388ms L hold 846ms
+15325ms C
+15794ms R
+16497ms L
+16966ms C
+17669ms R
+18138ms L
+18606ms C
+19309ms R
+19778ms L
+20247ms C
+20716ms C
+20716ms R
+21419ms L
+21888ms C
+22356ms R
+23059ms L
+23528ms C
+23997ms L
+23997ms R
+24466ms L
+25169ms C
+25638ms R
+26106ms L
+26809ms C
+27278ms C
+27278ms R
+27747ms L
+28216ms C
+28919ms R
+29388ms L
+29856ms C
+30325ms L
+30325ms R
+30794ms L
+31262ms C

@@ -51,10 +51,10 @@ module design_mb
   (* X_INTERFACE_INFO = "xilinx.com:interface:uart:1.0 usb_uart TxD" *) output usb_uart_txd;
 
   wire MISO;
-  (* DEBUG = "true" *) (* MARK_DEBUG *) wire MOSI;
-  (* DEBUG = "true" *) (* MARK_DEBUG *) wire SCLK0;
+  wire MOSI;
+  wire SCLK0;
   wire SCLK1;
-  (* DEBUG = "true" *) (* MARK_DEBUG *) wire [0:0]SS0;
+  wire [0:0]SS0;
   wire [0:0]SS1;
   wire [15:0]axi_gpio_0_GPIO2_TRI_O;
   wire [15:0]axi_gpio_0_GPIO_TRI_I;
@@ -64,9 +64,9 @@ module design_mb
   wire [5:0]axi_gpio_2_GPIO2_TRI_O;
   wire [4:0]axi_gpio_2_GPIO_TRI_I;
   wire axi_gpio_2_ip2intc_irpt;
-  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None ACK" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [0:1]axi_intc_0_interrupt_ACK;
-  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None ADDRESS" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [31:0]axi_intc_0_interrupt_ADDRESS;
-  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None INTERRUPT" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire axi_intc_0_interrupt_INTERRUPT;
+  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None ACK" *) wire [0:1]axi_intc_0_interrupt_ACK;
+  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None ADDRESS" *) wire [31:0]axi_intc_0_interrupt_ADDRESS;
+  (* CONN_BUS_INFO = "axi_intc_0_interrupt xilinx.com:interface:mbinterrupt:1.0 None INTERRUPT" *) wire axi_intc_0_interrupt_INTERRUPT;
   wire axi_quad_spi_0_ip2intc_irpt;
   wire axi_quad_spi_1_ip2intc_irpt;
   wire axi_timer_0_interrupt;
@@ -267,25 +267,25 @@ module design_mb
   wire microblaze_0_axi_periph_M07_AXI_WREADY;
   wire [3:0]microblaze_0_axi_periph_M07_AXI_WSTRB;
   wire microblaze_0_axi_periph_M07_AXI_WVALID;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARADDR" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [31:0]microblaze_0_axi_periph_M08_AXI_ARADDR;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARPROT" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [2:0]microblaze_0_axi_periph_M08_AXI_ARPROT;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARREADY" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_ARREADY;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARVALID" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_ARVALID;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWADDR" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [31:0]microblaze_0_axi_periph_M08_AXI_AWADDR;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWPROT" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [2:0]microblaze_0_axi_periph_M08_AXI_AWPROT;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWREADY" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_AWREADY;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWVALID" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_AWVALID;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BREADY" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_BREADY;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BRESP" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [1:0]microblaze_0_axi_periph_M08_AXI_BRESP;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BVALID" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_BVALID;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RDATA" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [31:0]microblaze_0_axi_periph_M08_AXI_RDATA;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RREADY" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_RREADY;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RRESP" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [1:0]microblaze_0_axi_periph_M08_AXI_RRESP;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RVALID" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_RVALID;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WDATA" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [31:0]microblaze_0_axi_periph_M08_AXI_WDATA;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WREADY" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_WREADY;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WSTRB" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire [3:0]microblaze_0_axi_periph_M08_AXI_WSTRB;
-  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WVALID" *) (* DEBUG = "true" *) (* MARK_DEBUG *) wire microblaze_0_axi_periph_M08_AXI_WVALID;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARADDR" *) wire [31:0]microblaze_0_axi_periph_M08_AXI_ARADDR;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARPROT" *) wire [2:0]microblaze_0_axi_periph_M08_AXI_ARPROT;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARREADY" *) wire microblaze_0_axi_periph_M08_AXI_ARREADY;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE ARVALID" *) wire microblaze_0_axi_periph_M08_AXI_ARVALID;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWADDR" *) wire [31:0]microblaze_0_axi_periph_M08_AXI_AWADDR;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWPROT" *) wire [2:0]microblaze_0_axi_periph_M08_AXI_AWPROT;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWREADY" *) wire microblaze_0_axi_periph_M08_AXI_AWREADY;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE AWVALID" *) wire microblaze_0_axi_periph_M08_AXI_AWVALID;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BREADY" *) wire microblaze_0_axi_periph_M08_AXI_BREADY;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BRESP" *) wire [1:0]microblaze_0_axi_periph_M08_AXI_BRESP;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE BVALID" *) wire microblaze_0_axi_periph_M08_AXI_BVALID;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RDATA" *) wire [31:0]microblaze_0_axi_periph_M08_AXI_RDATA;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RREADY" *) wire microblaze_0_axi_periph_M08_AXI_RREADY;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RRESP" *) wire [1:0]microblaze_0_axi_periph_M08_AXI_RRESP;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE RVALID" *) wire microblaze_0_axi_periph_M08_AXI_RVALID;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WDATA" *) wire [31:0]microblaze_0_axi_periph_M08_AXI_WDATA;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WREADY" *) wire microblaze_0_axi_periph_M08_AXI_WREADY;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WSTRB" *) wire [3:0]microblaze_0_axi_periph_M08_AXI_WSTRB;
+  (* CONN_BUS_INFO = "microblaze_0_axi_periph_M08_AXI xilinx.com:interface:aximm:1.0 AXI4LITE WVALID" *) wire microblaze_0_axi_periph_M08_AXI_WVALID;
   wire [31:0]microblaze_0_axi_periph_M09_AXI_ARADDR;
   wire microblaze_0_axi_periph_M09_AXI_ARREADY;
   wire microblaze_0_axi_periph_M09_AXI_ARVALID;
@@ -989,34 +989,6 @@ module design_mb
         .mb_reset(rst_clk_wiz_1_100M_mb_reset),
         .peripheral_aresetn(rst_clk_wiz_1_100M_peripheral_aresetn),
         .slowest_sync_clk(microblaze_0_Clk));
-  design_mb_system_ila_0_0 system_ila_0
-       (.SLOT_0_MBINTERRUPT_ack({axi_intc_0_interrupt_ACK[0],axi_intc_0_interrupt_ACK[1]}),
-        .SLOT_0_MBINTERRUPT_address(axi_intc_0_interrupt_ADDRESS),
-        .SLOT_0_MBINTERRUPT_interrupt(axi_intc_0_interrupt_INTERRUPT),
-        .SLOT_1_AXI_araddr(microblaze_0_axi_periph_M08_AXI_ARADDR[6:0]),
-        .SLOT_1_AXI_arprot(microblaze_0_axi_periph_M08_AXI_ARPROT),
-        .SLOT_1_AXI_arready(microblaze_0_axi_periph_M08_AXI_ARREADY),
-        .SLOT_1_AXI_arvalid(microblaze_0_axi_periph_M08_AXI_ARVALID),
-        .SLOT_1_AXI_awaddr(microblaze_0_axi_periph_M08_AXI_AWADDR[6:0]),
-        .SLOT_1_AXI_awprot(microblaze_0_axi_periph_M08_AXI_AWPROT),
-        .SLOT_1_AXI_awready(microblaze_0_axi_periph_M08_AXI_AWREADY),
-        .SLOT_1_AXI_awvalid(microblaze_0_axi_periph_M08_AXI_AWVALID),
-        .SLOT_1_AXI_bready(microblaze_0_axi_periph_M08_AXI_BREADY),
-        .SLOT_1_AXI_bresp(microblaze_0_axi_periph_M08_AXI_BRESP),
-        .SLOT_1_AXI_bvalid(microblaze_0_axi_periph_M08_AXI_BVALID),
-        .SLOT_1_AXI_rdata(microblaze_0_axi_periph_M08_AXI_RDATA),
-        .SLOT_1_AXI_rready(microblaze_0_axi_periph_M08_AXI_RREADY),
-        .SLOT_1_AXI_rresp(microblaze_0_axi_periph_M08_AXI_RRESP),
-        .SLOT_1_AXI_rvalid(microblaze_0_axi_periph_M08_AXI_RVALID),
-        .SLOT_1_AXI_wdata(microblaze_0_axi_periph_M08_AXI_WDATA),
-        .SLOT_1_AXI_wready(microblaze_0_axi_periph_M08_AXI_WREADY),
-        .SLOT_1_AXI_wstrb(microblaze_0_axi_periph_M08_AXI_WSTRB),
-        .SLOT_1_AXI_wvalid(microblaze_0_axi_periph_M08_AXI_WVALID),
-        .clk(microblaze_0_Clk),
-        .probe0(MOSI),
-        .probe1(SCLK0),
-        .probe2(SS0),
-        .resetn(rst_clk_wiz_1_100M_peripheral_aresetn));
   design_mb_xlconcat_0_0 xlconcat_0
        (.In0(axi_gpio_0_ip2intc_irpt),
         .In1(axi_gpio_2_ip2intc_irpt),
@@ -4727,3 +4699,4 @@ module s01_couplers_imp_KQHV35
         .s_axi_wstrb(s01_couplers_to_auto_pc_WSTRB),
         .s_axi_wvalid(s01_couplers_to_auto_pc_WVALID));
 endmodule
+

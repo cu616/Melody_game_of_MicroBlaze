@@ -1,0 +1,39 @@
+# Vivado generated working state
+.Xil/
+*.jou
+*.log
+*.pb
+*.wdb
+*.str
+*.xpr.zip
+Mini_IO.cache/
+Mini_IO.hw/
+Mini_IO.ip_user_files/
+Mini_IO.runs/
+Mini_IO.sim/
+xsim.dir/
+
+# SDK/Eclipse generated working state
+Mini_IO.sdk/.metadata/
+Mini_IO.sdk/.metadata_bak*/
+Mini_IO.sdk/.sdk/
+Mini_IO.sdk/RemoteSystemsTempFiles/
+Mini_IO.sdk/webtalk/
+Mini_IO.sdk/**/Debug/
+Mini_IO.sdk/**/Release/
+
+# Keep only the final handoff artifacts.
+*.bit
+*.elf
+!release/
+!release/design_mb_wrapper.bit
+!release/SeriesIODacSaw.elf
+
+# Local captures and temporary media
+.tmp_*
+uart_pcm_capture.wav
+music/*.mp3
+music/*.zpa
+music/processed/
+scripts/__pycache__/
+Packages/

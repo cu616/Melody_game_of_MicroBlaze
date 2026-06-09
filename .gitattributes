@@ -1,0 +1,17 @@
+*.md text eol=lf
+*.c text
+*.h text
+*.v text
+*.xdc text
+*.tcl text
+*.py text
+*.ps1 text
+*.mbchart text
+*.mem text eol=lf
+*.coe text
+*.bit binary
+*.elf binary
+*.png binary
+*.pdf binary
+*.docx binary
+*.mid binary

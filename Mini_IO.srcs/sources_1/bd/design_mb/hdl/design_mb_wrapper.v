@@ -10,9 +10,7 @@
 `timescale 1 ps / 1 ps
 
 module design_mb_wrapper
-   (AUD_PWM,
-    AUD_SD,
-    UART1_rx,
+   (UART1_rx,
     UART2_tx,
     VGA_B,
     VGA_G,
@@ -37,8 +35,6 @@ module design_mb_wrapper
     VS_XCS,
     VS_XDCS,
     VS_XRST);
-  output AUD_PWM;
-  output AUD_SD;
   input UART1_rx;
   output UART2_tx;
   output [3:0]VGA_B;
@@ -65,8 +61,6 @@ module design_mb_wrapper
   output VS_XDCS;
   output VS_XRST;
 
-  wire AUD_PWM;
-  wire AUD_SD;
   wire mb_MISO;
   wire mb_MOSI;
   wire mb_SCLK0;
@@ -114,13 +108,18 @@ module design_mb_wrapper
   // The RTL block remains as the VGA/display timing bridge, not as a selectable game mode.
   assign vs_mb_mode = 1'b1;
   assign mb_MISO = VS_MISO;
-  assign mb_switches_tri_i = {VS_DREQ, VS_MISO, dip_switches_16bits_tri_i[13:0]};
+  // Preserve physical SW15 for the unified pause control. VS1003B feedback
+  // occupies the retired SW14/SW13 software input slots.
+  assign mb_switches_tri_i = {dip_switches_16bits_tri_i[15], VS_DREQ, VS_MISO,
+                              dip_switches_16bits_tri_i[12:0]};
   assign VS_MOSI = vs_mb_mode ? mb_led_16bits_tri_o[3] : rtl_vs_mosi;
   assign VS_SCLK = vs_mb_mode ? mb_led_16bits_tri_o[4] : rtl_vs_sclk;
   assign VS_XCS = vs_mb_mode ? mb_led_16bits_tri_o[0] : rtl_vs_xcs;
   assign VS_XDCS = vs_mb_mode ? mb_led_16bits_tri_o[1] : rtl_vs_xdcs;
   assign VS_XRST = vs_mb_mode ? mb_led_16bits_tri_o[2] : rtl_vs_xrst;
-  assign led_16bits_tri_o = mb_led_16bits_tri_o;
+  // Keep the MicroBlaze GPIO bus internal for VS1003B control/status.
+  // Physical LEDs are driven by the independent RTL atmosphere visualizer.
+  assign led_16bits_tri_o = rtl_led_16bits_tri_o;
   assign dual_seven_seg_led_disp_tri_o = rtl_dual_seven_seg_led_disp_tri_o;
   assign seven_seg_led_an_tri_o = rtl_seven_seg_led_an_tri_o;
   assign rgb_led_tri_o = rtl_rgb_led_tri_o;
@@ -147,9 +146,7 @@ module design_mb_wrapper
         .usb_uart_txd(usb_uart_txd));
 
   rhythm_video_audio rhythm_video_audio_i
-       (.aud_pwm(AUD_PWM),
-        .aud_sd(AUD_SD),
-        .buttons(push_buttons_5bits_tri_i),
+       (.buttons(push_buttons_5bits_tri_i),
         .clk100(sys_clock),
         .diag_an(rtl_seven_seg_led_an_tri_o),
         .diag_led(rtl_led_16bits_tri_o),

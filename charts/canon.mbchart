@@ -1,0 +1,55 @@
+# MicroBlaze rhythm chart: Canon in D main melody
+# Generated from the same MIDI file used by VS1003B playback.
+# Time values are judgement times in game milliseconds.
+# Onsets follow the main melody; lanes are gameplay-balanced L/C/R.
+# Climax notes may add a simultaneous second lane; long notes may become holds.
+# Source: music/midi/canon_main_melody.mid
+# Channels: 0
+# Filter: min_gap_ms=450, base_notes=38, doubles=4
+
+@offset_ms 2200
+@bpm 36
+@beats_per_bar 4
+
+2200ms R
+2825ms C
+3450ms L
+4075ms R
+5325ms C
+5950ms L
+6783ms R
+7408ms C
+8033ms L
+8658ms R
+10117ms C
+10742ms L
+11367ms R
+11992ms C
+12617ms L
+13450ms R
+14700ms C
+15325ms L
+15950ms R
+16783ms C
+17408ms L
+18033ms R
+19283ms C
+20117ms L
+20117ms C
+20742ms R
+21367ms C
+21992ms L
+22617ms L
+22617ms R
+24075ms C
+24700ms L
+25325ms R
+25950ms C
+25950ms R
+26783ms L
+27408ms R
+28658ms C
+30533ms L
+30533ms C
+32200ms R hold 833ms
+33867ms C hold 833ms
