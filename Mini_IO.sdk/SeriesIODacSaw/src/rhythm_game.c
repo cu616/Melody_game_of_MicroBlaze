@@ -92,6 +92,7 @@
 #define LANE_LEFT  0U
 #define LANE_MID   1U
 #define LANE_RIGHT 2U
+#define HOLD_RELEASE_GRACE_MS 80U
 
 #define GAME_WAIT  0U
 #define GAME_PLAY  1U
@@ -109,14 +110,14 @@ static u8 VsAudioArmed = 0U;
 static u8 MbVgaStateCode = MB_VGA_STATE_WAIT;
 static u8 MbVgaSongCode = 3U;
 static u8 MbVgaRatingCode = MB_VGA_RATING_NONE;
-static u8 MbVgaVolumeCode = 10U;
+static u8 MbVgaVolumeCode = 13U;
 static const u8 *VsAudioData = Vs1003bFadedMidi;
 static u32 VsAudioLen = VS1003B_FADED_MIDI_LEN;
 static const u8 VsVolumeTable[] = {
-    0xFEU, 0xE8U, 0xD4U, 0xC0U, 0xA8U, 0x90U, 0x78U, 0x60U,
-    0x48U, 0x34U, 0x24U, 0x18U, 0x10U, 0x08U, 0x03U, 0x00U
+    0xFEU, 0xD8U, 0xB8U, 0x98U, 0x78U, 0x60U, 0x48U, 0x34U,
+    0x24U, 0x18U, 0x10U, 0x0CU, 0x08U, 0x05U, 0x02U, 0x00U
 };
-static u8 VsVolumeIndex = 10U;
+static u8 VsVolumeIndex = 13U;
 static u8 VsMuted = 0U;
 
 static void BusyDelay(u32 cycles)
@@ -541,6 +542,17 @@ static u8 CurrentSongLen(void)
     return 0U;
 }
 
+static u8 LaneButtonMask(u8 lane)
+{
+    if (lane == LANE_LEFT) {
+        return BTN_L;
+    }
+    if (lane == LANE_RIGHT) {
+        return BTN_R;
+    }
+    return BTN_C;
+}
+
 static void InitHardware(void)
 {
     Xil_Out32(GPIO_SW_LED_BASEADDR + XGPIO_TRI_OFFSET, 0xFFFFU);
@@ -933,8 +945,13 @@ static void UpdateMisses(void)
 
     if (ActiveHoldValid != 0U) {
         const Note *active = &song[ActiveHoldIndex];
-        if (GameTimeMs >= (u32)active->time_ms + (u32)active->length_ms) {
+        u32 hold_end = (u32)active->time_ms + (u32)active->length_ms;
+        if (GameTimeMs >= hold_end) {
             ActiveHoldValid = 0U;
+        } else if (GameTimeMs > (u32)active->time_ms + HOLD_RELEASE_GRACE_MS &&
+                   (CurrentButtons & LaneButtonMask(active->lane)) == 0U) {
+            ActiveHoldValid = 0U;
+            AddMiss();
         }
     }
 
