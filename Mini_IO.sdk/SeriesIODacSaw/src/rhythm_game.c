@@ -11,22 +11,13 @@
 
 #include "xparameters.h"
 #include "xil_io.h"
-#include "xil_printf.h"
 #include "xil_types.h"
 #include "xgpio_l.h"
 #include "xstatus.h"
 #include "xintc_l.h"
 #include "xtmrctr_l.h"
-#include "xuartlite_l.h"
 #include "mb_interface.h"
 #include "vs1003b_midi_assets.h"
-
-#define VS1003B_MB_STREAM_TEST   1
-#define VS1003B_SINE_OUTPUT_TEST 0
-#define USB_UART_AUDIO_TEST      0
-#define UART_AUDIO_SAMPLE_RATE   800U
-#define UART_AUDIO_SAMPLE_US     (1000000U / UART_AUDIO_SAMPLE_RATE)
-#define UART_AUDIO_BASEADDR      STDOUT_BASEADDRESS
 
 #define GPIO_SW_LED_BASEADDR     XPAR_AXI_GPIO_0_BASEADDR
 #define GPIO_SEVENSEG_BASEADDR   XPAR_AXI_GPIO_1_BASEADDR
@@ -73,8 +64,6 @@
 #define VS_SCI_DECODE_TIME       0x04U
 #define VS_SCI_AUDATA            0x05U
 #define VS_SCI_VOL               0x0BU
-#define VS_SM_TESTS              0x0020U
-#define VS_SM_SDINEW             0x0800U
 #define SW_MUTE_MASK             0x0004U
 #define SW_PAUSE_MASK            0x8000U
 #define SW_SPEED_SHIFT           3U
@@ -100,7 +89,6 @@
 #define GAME_PAUSE 2U
 #define GAME_DONE  3U
 
-#if VS1003B_MB_STREAM_TEST
 /* Shared state exposed to the RTL display bridge through GPIO0 channel 2.
  * Low bits drive the VS1003B bus; high bits encode song/state/judge/volume
  * so the VGA and seven-segment logic can render the same software state.
@@ -291,16 +279,6 @@ static void VsSendMp3Chunk(const u8 *data, u32 len)
     VsSetBus(VS_GPIO_IDLE);
 }
 
-#if VS1003B_SINE_OUTPUT_TEST
-static void VsStartSineTest(void)
-{
-    static const u8 sine_start[] = {0x53U, 0xEFU, 0x6EU, 0x44U, 0x00U, 0x00U, 0x00U, 0x00U};
-
-    VsSciWrite(VS_SCI_MODE, VS_SM_SDINEW | VS_SM_TESTS);
-    VsSendMp3Chunk(sine_start, sizeof(sine_start));
-}
-#endif
-
 static int VsDreqReady(void)
 {
     return (Xil_In32(GPIO_SW_LED_BASEADDR + XGPIO_DATA_OFFSET) & VS_DREQ_GPIO_MASK) != 0U;
@@ -381,13 +359,6 @@ static void VsServiceFadedMidi(void)
 {
     u32 remaining;
 
-#if VS1003B_SINE_OUTPUT_TEST
-    VsStartSineTest();
-    while (1) {
-        VsToggleStatus(VS_LED_LOOP);
-        BusyDelay(8000000U);
-    }
-#else
     if (VsAudioArmed == 0U || !VsDreqReady()) {
         return;
     }
@@ -403,86 +374,7 @@ static void VsServiceFadedMidi(void)
     VsSendMp3Chunk(&VsAudioData[VsAudioPos], remaining);
     VsAudioPos += remaining;
     VsSetStatus(VS_LED_DECODE_TICK);
-#endif
 }
-#endif
-
-#if USB_UART_AUDIO_TEST
-static void BusyDelay(u32 cycles)
-{
-    volatile u32 i;
-    for (i = 0; i < cycles; ++i) {
-    }
-}
-
-static void UartSendByte(u8 data)
-{
-    XUartLite_SendByte(UART_AUDIO_BASEADDR, data);
-}
-
-static void UartSendText(const char *text)
-{
-    while (*text != '\0') {
-        UartSendByte((u8)*text);
-        ++text;
-    }
-}
-
-static u8 TriangleSample(u32 phase, u8 amplitude)
-{
-    u8 ramp = (u8)(phase >> 24);
-    u8 tri = (ramp < 128U) ? (u8)(ramp << 1) : (u8)(255U - ((ramp - 128U) << 1));
-    s16 centered = (s16)tri - 128;
-    centered = (centered * (s16)amplitude) >> 7;
-    return (u8)(128 + centered);
-}
-
-static u32 NoteStep(u16 hz)
-{
-    return (u32)(((u64)hz << 32) / UART_AUDIO_SAMPLE_RATE);
-}
-
-static void RunUsbUartAudioTest(void)
-{
-    static const u16 notes_hz[] = {
-        587, 740, 880, 1175, 880, 740, 587, 740,
-        659, 880, 1109, 1319, 1109, 880, 659, 880,
-        494, 587, 740, 988, 740, 587, 494, 587,
-        440, 554, 740, 880, 740, 554, 440, 554
-    };
-    u32 phase = 0;
-    u32 sample_count = 0;
-    u32 note_index = 0;
-    u32 samples_in_note = 0;
-    u32 step = NoteStep(notes_hz[0]);
-    const u32 samples_per_note = UART_AUDIO_SAMPLE_RATE / 4U;
-
-    UartSendText("N4PCM8 800Hz unsigned mono, raw bytes after ENDHDR\r\nENDHDR\r\n");
-
-    while (1) {
-        u8 amp = 90U;
-        u32 edge = samples_in_note;
-        if (edge < 16U) {
-            amp = (u8)(edge * 6U);
-        } else if (edge > samples_per_note - 16U) {
-            amp = (u8)((samples_per_note - edge) * 6U);
-        }
-
-        phase += step;
-        UartSendByte(TriangleSample(phase, amp));
-
-        ++sample_count;
-        ++samples_in_note;
-        if (samples_in_note >= samples_per_note) {
-            samples_in_note = 0;
-            note_index = (note_index + 1U) % (sizeof(notes_hz) / sizeof(notes_hz[0]));
-            step = NoteStep(notes_hz[note_index]);
-        }
-
-        BusyDelay(7600U);
-    }
-}
-#endif
 
 typedef struct {
     u16 time_ms;
@@ -692,9 +584,7 @@ static void SetRating(u8 rating)
         Display[2] = 0x92;
         Display[3] = 0x92;
     }
-#if VS1003B_MB_STREAM_TEST
     VsGpioWrite(VsGpioState);
-#endif
 }
 
 static void UpdateScoreDisplay(void)
@@ -857,11 +747,9 @@ static void StartGame(void)
         CheatIndex = 0U;
         SetRating(' ');
         UpdateScoreDisplay();
-#if VS1003B_MB_STREAM_TEST
         VsAudioArmed = 0U;
         VsSetMuted(1U);
         VsGpioWrite(VsGpioState);
-#endif
         return;
     } else if (song_sw == 0x0003U) {
         SongIndex = 2U;
@@ -886,12 +774,10 @@ static void StartGame(void)
     CheatIndex = 0U;
     SetRating(' ');
     UpdateScoreDisplay();
-#if VS1003B_MB_STREAM_TEST
     VsSelectSong(SongIndex);
     VsResetDecoderForNewMidi();
     VsRestartMidi();
     VsSetMuted((sw & SW_MUTE_MASK) != 0U);
-#endif
 }
 
 static void AddHit(u8 rating)
@@ -924,9 +810,7 @@ static void ApplyFinishCheat(void)
     SetRating('S');
     UpdateScoreDisplay();
     MbVgaStateCode = MB_VGA_STATE_DONE;
-#if VS1003B_MB_STREAM_TEST
     VsGpioWrite(VsGpioState);
-#endif
 }
 
 static void JudgeLane(u8 lane)
@@ -994,16 +878,6 @@ static void UpdateMisses(void)
 
 static void UpdateFeedback(u8 buttons)
 {
-#if !VS1003B_MB_STREAM_TEST
-    u32 leds = 0;
-    if (GameState == GAME_PLAY) {
-        leds |= 0x0001U << (GameTimeMs / 125U % 16U);
-    }
-    leds |= ((u32)buttons & 0x1FU) << 8;
-    leds |= ((u32)(Combo & 0x7U)) << 5;
-    Xil_Out32(GPIO_SW_LED_BASEADDR + XGPIO_DATA2_OFFSET, leds);
-#endif
-
     if (LastRating == 'A') {
         Xil_Out32(GPIO_BUTTON_RGB_BASEADDR + XGPIO_DATA2_OFFSET, 0x12U);
     } else if (LastRating == 'B' || LastRating == 'C') {
@@ -1068,14 +942,10 @@ static void HandleButtonPresses(u8 pressed)
     }
 
     if ((pressed & BTN_U) != 0U && (pressed & BTN_D) == 0U) {
-#if VS1003B_MB_STREAM_TEST
         VsAdjustVolume(1);
-#endif
     }
     if ((pressed & BTN_D) != 0U && (pressed & BTN_U) == 0U) {
-#if VS1003B_MB_STREAM_TEST
         VsAdjustVolume(-1);
-#endif
     }
     if (GameState != GAME_PLAY) {
         return;
@@ -1093,11 +963,14 @@ static void HandleButtonPresses(u8 pressed)
 
 int main(void)
 {
-#if VS1003B_MB_STREAM_TEST
     u8 buttons;
     u8 pressed;
     u8 vga_frame_div = 0U;
 
+    /* Final build path: MicroBlaze game logic streams compact MIDI data to
+     * VS1003B.  Earlier UART/J8/PWM audio tests were removed after acceptance
+     * because they are not part of the submitted running path.
+     */
     InitHardware();
     SetRating(' ');
     UpdateScoreDisplay();
@@ -1160,33 +1033,4 @@ int main(void)
                        song_sw == 0U);
         }
     }
-#elif USB_UART_AUDIO_TEST
-    RunUsbUartAudioTest();
-    return 0;
-#else
-    u8 buttons;
-
-    xil_printf("Nexys4 DDR three-lane rhythm game start\r\n");
-    InitHardware();
-    SetRating(' ');
-    UpdateScoreDisplay();
-    InitInterrupts();
-
-    while (1) {
-        u8 pressed = PopButtonEvents();
-        if (pressed != 0U) {
-            HandleButtonPresses(pressed);
-        }
-        if (PopTimerTick()) {
-            ScanSevenSeg();
-            buttons = CurrentButtons;
-            if (GameState == GAME_PLAY) {
-                u16 sw = (u16)Xil_In32(GPIO_SW_LED_BASEADDR + XGPIO_DATA_OFFSET);
-                GameTimeMs += 1U + (sw & 0x0003U);
-                UpdateMisses();
-            }
-            UpdateFeedback(buttons);
-        }
-    }
-#endif
 }

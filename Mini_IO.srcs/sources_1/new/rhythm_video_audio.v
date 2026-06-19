@@ -150,20 +150,20 @@ module rhythm_video_audio (
     wire [1:0] mb_song_select = mb_led_status[13:12];
     wire [1:0] mb_rating_code = mb_led_status[11:10];
     wire [3:0] mb_volume_level = mb_led_status[9:6];
-    wire [3:0] ui_judgement = mb_mode ? ((mb_rating_code == 2'd1) ? 4'd2 :
-                                         (mb_rating_code == 2'd2) ? 4'd1 :
-                                         (mb_rating_code == 2'd3) ? 4'd0 : 4'd7) :
-                                         game_judgement;
-    wire ui_paused = mb_mode ? (mb_game_state == 2'd2) : game_paused;
-    wire ui_finished = mb_mode ? (mb_game_state == 2'd3) : game_finished;
-    wire ui_audio_enabled = mb_mode ? (mb_game_state != 2'd0) : audio_enabled;
-    wire [1:0] ui_song_select = mb_mode ? mb_song_select : game_song;
-    wire [19:0] ui_score_bcd = mb_mode ? {4'd0, mb_display_digit3, mb_display_digit2,
-                                          mb_display_digit1, mb_display_digit0} :
-                                          game_score_bcd;
-    wire [95:0] ui_note_tracks = mb_mode ? mb_note_tracks : game_tracks;
-    wire [95:0] ui_hold_tracks = mb_mode ? mb_hold_tracks : game_hold_tracks;
-    wire [2:0] ui_buttons = mb_mode ? mb_button_tracks : game_buttons;
+    // Final build accepts note/judge/score/button state only from MicroBlaze.
+    // Earlier RTL self-running game state was removed from the active path.
+    wire [3:0] ui_judgement = (mb_rating_code == 2'd1) ? 4'd2 :
+                              (mb_rating_code == 2'd2) ? 4'd1 :
+                              (mb_rating_code == 2'd3) ? 4'd0 : 4'd7;
+    wire ui_paused = (mb_game_state == 2'd2);
+    wire ui_finished = (mb_game_state == 2'd3);
+    wire ui_audio_enabled = (mb_game_state != 2'd0);
+    wire [1:0] ui_song_select = mb_song_select;
+    wire [19:0] ui_score_bcd = {4'd0, mb_display_digit3, mb_display_digit2,
+                                mb_display_digit1, mb_display_digit0};
+    wire [95:0] ui_note_tracks = mb_note_tracks;
+    wire [95:0] ui_hold_tracks = mb_hold_tracks;
+    wire [2:0] ui_buttons = mb_button_tracks;
     wire [7:0] led_breathe =
         slow_count[26] ? ~slow_count[25:18] : slow_count[25:18];
     wire [7:0] led_pwm = slow_count[7:0];
@@ -176,7 +176,7 @@ module rhythm_video_audio (
     wire led_note_near_judge =
         |(ui_note_tracks[31:24] | ui_note_tracks[63:56] | ui_note_tracks[95:88] |
           ui_hold_tracks[31:24] | ui_hold_tracks[63:56] | ui_hold_tracks[95:88]);
-    wire [5:0] ui_volume_text_id = mb_mode ? (6'd32 + {2'b00, mb_volume_level}) : volume_text_id;
+    wire [5:0] ui_volume_text_id = 6'd32 + {2'b00, mb_volume_level};
     wire [5:0] ui_judgement_text_id = ui_paused ? 6'd51 :
                                        ui_finished ? 6'd30 :
                                        (ui_judgement == 4'd2) ? 6'd8 :
@@ -211,6 +211,15 @@ module rhythm_video_audio (
     wire [3:0] hold_blend_r = {1'b0, track_bg_r[3:1]} + 4'h8;
     wire [3:0] hold_blend_g = {1'b0, track_bg_g[3:1]} + 4'h8;
     wire [3:0] hold_blend_b = {1'b0, track_bg_b[3:1]} + 4'h8;
+
+    // Final SoC build: VS1003B pins are owned by MicroBlaze through the wrapper.
+    // These idle assignments keep the removed RTL test players from driving
+    // anything when this display bridge is reused outside the current wrapper.
+    assign vs_mosi = 1'b0;
+    assign vs_sclk = 1'b0;
+    assign vs_xcs  = 1'b1;
+    assign vs_xdcs = 1'b1;
+    assign vs_xrst = 1'b1;
 
     localparam CANON_TOTAL_STEPS = 11'd1151; // 64 bars plus delayed-voice tail
     localparam FADE_TOTAL_STEPS = 9'd63; // 16-bar opening intro, quarter-note grid
@@ -247,38 +256,6 @@ module rhythm_video_audio (
     localparam N_G2   = 5'd30;
     localparam N_B2   = 5'd31;
 
-    // The old J8 PWM audio path is intentionally left without board pins.
-    // Final audio is streamed by MicroBlaze to the VS1003B module.
-    rhythm_game_core game_core_i (
-        .clk(clk100),
-        .reset(reset_active),
-        .enable(audio_enabled),
-        .paused(game_paused),
-        .song_select(game_song),
-        .speed_select(game_speed),
-        .buttons(lane_button_raw),
-        .mapped_buttons(game_buttons),
-        .button_edges(button_edges),
-        .tracks(game_tracks),
-        .hold_tracks(game_hold_tracks),
-        .hit_window(game_hit_window),
-        .score(game_score),
-        .combo(game_combo),
-        .judgement(game_judgement),
-        .finished(game_finished)
-    );
-
-    rhythm_sevenseg game_sevenseg_i (
-        .clk(clk100),
-        .reset(reset_active),
-        .score(game_score),
-        .combo(game_combo),
-        .judgement(game_judgement),
-        .paused(game_paused),
-        .seg(game_seg),
-        .an(game_an)
-    );
-
     rhythm_mb_sevenseg mb_sevenseg_i (
         .clk(clk100),
         .reset(reset_active),
@@ -289,21 +266,6 @@ module rhythm_video_audio (
         .finished(ui_finished),
         .seg(mb_game_seg),
         .an(mb_game_an)
-    );
-
-    vs1003b_mp3_rom_player vs1003b_demo_i (
-        .clk(clk100),
-        .reset(reset_active),
-        .enable(vs1003_player_enabled),
-        .song_select(vs1003_song_select),
-        .dreq(vs_dreq),
-        .miso(vs_miso),
-        .mosi(vs_mosi),
-        .sclk(vs_sclk),
-        .xcs(vs_xcs),
-        .xdcs(vs_xdcs),
-        .xrst(vs_xrst),
-        .debug(vs1003_debug)
     );
 
     album_art_track_rom album_art_track_i (
@@ -1773,11 +1735,11 @@ module rhythm_video_audio (
                        ((h_count >= 10'd484 && h_count < 10'd620 && v_count >= 10'd278 && v_count < 10'd320) &&
                         (h_count < 10'd487 || h_count >= 10'd617 || v_count < 10'd281 || v_count >= 10'd317));
         ui_line_pixel = (h_count == 10'd176 || h_count == 10'd463);
-        ui_selected_pixel = (((mb_mode && ui_song_select == 2'd0) || (!mb_mode && canon_mode)) &&
+        ui_selected_pixel = (ui_song_select == 2'd0 &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd52 && v_count < 10'd84) ||
-                            (((mb_mode && ui_song_select == 2'd1) || (!mb_mode && edm_mode)) &&
+                            (ui_song_select == 2'd1 &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd96 && v_count < 10'd128) ||
-                            (mb_mode && ui_song_select == 2'd2 &&
+                            (ui_song_select == 2'd2 &&
                              h_count >= 10'd24 && h_count < 10'd152 && v_count >= 10'd140 && v_count < 10'd162);
 
         if (!active_video) begin
@@ -2144,6 +2106,14 @@ module album_art_track_rom (
     end
 endmodule
 
+// Historical test modules below are disabled in the final build.  They were
+// used for early RTL-only VS1003B/J8/audio/gameplay experiments before
+// MicroBlaze owned MIDI streaming, chart state, judgement and score.
+// Define KEEP_HISTORICAL_TEST_MODULES only when deliberately restoring those
+// lab tests from the backup branch/tag.
+`ifdef KEEP_HISTORICAL_TEST_MODULES
+
+// Historical test module only: early RTL-side VS1003B ROM/MIDI player.
 module vs1003b_mp3_rom_player (
     input wire clk,
     input wire reset,
@@ -2533,6 +2503,8 @@ module vs1003b_mp3_rom_player (
     end
 endmodule
 
+// Historical test module only: early RTL-side PCM/WAV sender for VS1003B.
+// Kept for reference after backup; not part of the final running path.
 module vs1003b_pcm_player (
     input wire clk,
     input wire reset,
@@ -2819,6 +2791,8 @@ module vs1003b_pcm_player (
     end
 endmodule
 
+// Historical test module only: VS1003B sine-test command generator.
+// Final audio path is MicroBlaze MIDI streaming.
 module vs1003b_sine_demo (
     input wire clk,
     input wire reset,
@@ -3119,6 +3093,8 @@ module vs1003b_sine_demo (
     end
 endmodule
 
+// Historical test module only: self-running RTL rhythm-game core used before
+// MicroBlaze owned the chart, judgement, score and hold state.
 module rhythm_game_core (
     input wire clk,
     input wire reset,
@@ -3370,6 +3346,8 @@ module rhythm_game_core (
         end
     end
 endmodule
+
+`endif
 
 module rhythm_mb_sevenseg (
     input wire clk,
