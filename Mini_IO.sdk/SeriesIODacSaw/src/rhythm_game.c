@@ -88,6 +88,7 @@
 #define BTN_L 0x04U
 #define BTN_R 0x08U
 #define BTN_D 0x10U
+#define CHEAT_SEQ_LEN 10U
 
 #define LANE_LEFT  0U
 #define LANE_MID   1U
@@ -506,6 +507,7 @@ static u16 LastSongSwitch = 0xFFFFU;
 static u8 NextNote = 0;
 static u8 ActiveHoldValid = 0;
 static u8 ActiveHoldIndex = 0;
+static u8 CheatIndex = 0;
 static u8 LastButtons = 0;
 static u32 GameTimeMs = 0;
 static u32 Score = 0;
@@ -516,6 +518,10 @@ static volatile u32 TimerTicksPending = 0U;
 static volatile u8 ButtonPressedEvents = 0U;
 static volatile u8 SwitchEventPending = 0U;
 static volatile u8 CurrentButtons = 0U;
+
+static const u8 CheatSequence[CHEAT_SEQ_LEN] = {
+    BTN_U, BTN_U, BTN_D, BTN_D, BTN_L, BTN_R, BTN_L, BTN_R, BTN_C, BTN_C
+};
 
 static const Note *CurrentSong(void)
 {
@@ -680,6 +686,11 @@ static void SetRating(u8 rating)
         Display[1] = 0x92;
         Display[2] = 0xF9;
         Display[3] = 0x86;
+    } else if (rating == 'S') {
+        Display[0] = 0x92;
+        Display[1] = 0x92;
+        Display[2] = 0x92;
+        Display[3] = 0x92;
     }
 #if VS1003B_MB_STREAM_TEST
     VsGpioWrite(VsGpioState);
@@ -843,6 +854,7 @@ static void StartGame(void)
         NextNote = 0U;
         ActiveHoldValid = 0U;
         ActiveHoldIndex = 0U;
+        CheatIndex = 0U;
         SetRating(' ');
         UpdateScoreDisplay();
 #if VS1003B_MB_STREAM_TEST
@@ -871,6 +883,7 @@ static void StartGame(void)
     NextNote = 0;
     ActiveHoldValid = 0U;
     ActiveHoldIndex = 0U;
+    CheatIndex = 0U;
     SetRating(' ');
     UpdateScoreDisplay();
 #if VS1003B_MB_STREAM_TEST
@@ -903,6 +916,17 @@ static void AddMiss(void)
     Combo = 0;
     SetRating('M');
     UpdateScoreDisplay();
+}
+
+static void ApplyFinishCheat(void)
+{
+    Score = (u32)CurrentSongLen() * 100U;
+    SetRating('S');
+    UpdateScoreDisplay();
+    MbVgaStateCode = MB_VGA_STATE_DONE;
+#if VS1003B_MB_STREAM_TEST
+    VsGpioWrite(VsGpioState);
+#endif
 }
 
 static void JudgeLane(u8 lane)
@@ -1025,6 +1049,24 @@ static u8 PopSwitchEvent(void)
 
 static void HandleButtonPresses(u8 pressed)
 {
+    u8 game_buttons = pressed & (BTN_U | BTN_D | BTN_L | BTN_R | BTN_C);
+
+    if (GameState == GAME_DONE) {
+        if (game_buttons == 0U || (game_buttons & (u8)(game_buttons - 1U)) != 0U) {
+            return;
+        }
+        if (game_buttons == CheatSequence[CheatIndex]) {
+            ++CheatIndex;
+            if (CheatIndex >= CHEAT_SEQ_LEN) {
+                CheatIndex = 0U;
+                ApplyFinishCheat();
+            }
+        } else {
+            CheatIndex = (game_buttons == CheatSequence[0]) ? 1U : 0U;
+        }
+        return;
+    }
+
     if ((pressed & BTN_U) != 0U && (pressed & BTN_D) == 0U) {
 #if VS1003B_MB_STREAM_TEST
         VsAdjustVolume(1);
