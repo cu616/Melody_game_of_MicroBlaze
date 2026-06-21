@@ -2,6 +2,9 @@
 # Module pin order: XDCS XCS DREQ SCLK MOSI MISO XRST GND 5V.
 # Connect signal pins to JA as listed here; connect GND to PMOD GND.
 # Do not connect the module 5V pin to PMOD VCC unless the module is known to accept 3.3V.
+set_property CFGBVS VCCO [current_design]
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+
 set_property PACKAGE_PIN C17 [get_ports VS_XDCS]
 set_property PACKAGE_PIN D18 [get_ports VS_XCS]
 set_property PACKAGE_PIN E18 [get_ports VS_DREQ]
@@ -22,6 +25,11 @@ set_property IOSTANDARD LVCMOS33 [get_ports UART1_rx]
 # [0]=N17/BTNC, [1]=M18/BTNU, [2]=P17/BTNL, [3]=M17/BTNR, [4]=P18/BTND.
 # rhythm_video_audio remaps those bits so lanes are P17(left), N17(center), M17(right).
 set_property IOSTANDARD LVCMOS33 [get_ports {push_buttons_5bits_tri_i[*]}]
+
+# SW13 is not used by final gameplay, but the full switch GPIO bus is present
+# in the SoC and should be fully constrained.
+set_property PACKAGE_PIN U12 [get_ports {dip_switches_16bits_tri_i[13]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {dip_switches_16bits_tri_i[13]}]
 
 # SW14 is consumed directly by rhythm_video_audio as the VS1003B pitch calibration switch.
 set_property PACKAGE_PIN U11 [get_ports {dip_switches_16bits_tri_i[14]}]
@@ -98,7 +106,3 @@ set_property PACKAGE_PIN N16 [get_ports {rgb_led_tri_o[3]}]
 set_property PACKAGE_PIN R11 [get_ports {rgb_led_tri_o[4]}]
 set_property PACKAGE_PIN G14 [get_ports {rgb_led_tri_o[5]}]
 set_property IOSTANDARD LVCMOS33 [get_ports {rgb_led_tri_o[*]}]
-set_property C_CLK_INPUT_FREQ_HZ 300000000 [get_debug_cores dbg_hub]
-set_property C_ENABLE_CLK_DIVIDER false [get_debug_cores dbg_hub]
-set_property C_USER_SCAN_CHAIN 1 [get_debug_cores dbg_hub]
-connect_debug_port dbg_hub/clk [get_nets clk]

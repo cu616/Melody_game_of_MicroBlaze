@@ -5,9 +5,17 @@ Keep this project plus HelloWorld_bsp and design_mb_wrapper_hw_platform_0 in
 the SDK workspace. The old classroom examples were removed from the workspace
 tree so this app is the single software entry point.
 
-Current VS1003B mode:
-SW2 = hand VS1003B pins to MicroBlaze and start the software player.
-Keep SW2=1 before reset/download, or turn SW2 on and then reset the board.
+Final software layout:
+- rhythm_game.c: main loop only.
+- rhythm_game.h: shared constants, state declarations, and function prototypes.
+- rhythm_state.c: shared game state and current-chart selection.
+- rhythm_hw.c: GPIO, timer, button/switch interrupt setup, and event pop helpers.
+- rhythm_display.c: seven-seg display, VGA packet bridge, score/rating output,
+  RGB feedback, and visible note/hold row generation.
+- rhythm_logic.c: song start/reset, note judgement, hold handling, miss handling,
+  and finish detection.
+- vs1003b_player.c: VS1003B GPIO/SPI bit-bang transport, SCI writes, volume,
+  mute, song selection, and MIDI byte-stream service.
 
 The MicroBlaze player bit-bangs VS1003B through GPIO0 channel 2:
 bit0 XCS, bit1 XDCS, bit2 XRST, bit3 MOSI, bit4 SCLK.
@@ -30,19 +38,21 @@ timing, clip range, and melody events are intentionally unchanged.
 MP3 frame clips are kept only as historical VS1003B smoke-test material and are
 not the active playback source in this build.
 
-In SW2=1 mode the same MicroBlaze program also owns the basic game controls.
-SW1:SW0 selects songs: 00 defaults to Faded, 01 selects Canon, 10 selects Faded,
+The MicroBlaze program owns the basic game controls.
+SW1:SW0 selects songs: 00 is idle/black, 01 selects Canon, 10 selects Faded,
 and 11 selects Aphasia. Changing SW1:SW0 restarts the selected chart and MIDI
-byte stream. SW13 pauses/resumes the music stream and chart timer together.
+byte stream. SW15 pauses/resumes the music stream and chart timer together.
+SW2 mutes/unmutes music only; chart timing continues while muted.
 BTNU/BTND click up/down through 16 VS1003B volume attenuation steps from very
 quiet to maximum. BTNL/BTNC/BTNR are left/center/right lanes. Seven-seg
-score/rating and RGB feedback are driven by MicroBlaze through AXI GPIO in this
-mode.
+score/rating and RGB feedback are driven by MicroBlaze through AXI GPIO.
 
 Button map for rhythm-game mode:
 BTNL = left lane, BTNC = middle lane, BTNR = right lane
 BTNU = volume up, BTND = volume down
-SW13 = pause/resume music and chart
+SW15 = pause/resume music and chart
+SW2 = mute/unmute music
 
-Legacy rhythm-game switch map:
-SW0-SW1 = speed, SW2 = song select, SW4 = audio enable, SW5 = VGA demo assist
+The older RTL/J8/UART test paths were removed or disabled after backup.  See
+the hardware-history document under the Chinese documentation folder for why
+they existed and why the final submission does not use them.

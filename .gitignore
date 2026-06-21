@@ -37,3 +37,24 @@ music/*.zpa
 music/processed/
 scripts/__pycache__/
 Packages/
+
+# Course-submission packages and report-only artifacts
+提交压缩包_教师版/
+*教师版.zip
+*.zip
+文档/综合项目实验报告*.docx
+文档/实验三_*.docx
+文档/实验四_*.docx
+文档/综合项目实验报告_补充材料说明*.docx
+文档/Lab00-*.pptx
+文档/bitstream重新生成说明*.md
+文档/历史测试路径与废弃硬件模块说明.md
+文档/音频_VGA曲绘_中断轮询开发复盘.md
+文档/pictures/
+文档/report_assets/
+文档/report_render*/
+scripts/build_final_report.py
+scripts/build_restructured_report.py
+
+# AI collaboration notes and intermediate write-up logs
+文档/AI_*.md

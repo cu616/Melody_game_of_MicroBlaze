@@ -1,5 +1,24 @@
 open_project Mini_IO.xpr
 set_property STEPS.SYNTH_DESIGN.TCL.PRE [file normalize scripts/synth_pre.tcl] [get_runs synth_1]
+set_property STEPS.OPT_DESIGN.TCL.PRE {} [get_runs impl_1]
+
+# The final demo does not use the old System ILA debug core. Disable its
+# generated constraints so Vivado does not try to apply them to a module that is
+# no longer present after cleanup.
+foreach ila_xdc [get_files -quiet -all *ila_v6_2*/constraints/ila*.xdc] {
+    catch {set_property USED_IN_SYNTHESIS false $ila_xdc}
+    catch {set_property USED_IN_IMPLEMENTATION false $ila_xdc}
+    catch {set_property IS_ENABLED false $ila_xdc}
+}
+
+# The final project uses a MicroBlaze block design plus a VGA display bridge.
+# RuntimeOptimized keeps rebuilds practical after small RTL cleanups; the board
+# clock target is modest enough that the faster strategy is preferred here.
+set_property STEPS.SYNTH_DESIGN.ARGS.DIRECTIVE RuntimeOptimized [get_runs synth_1]
+set_property STEPS.SYNTH_DESIGN.ARGS.FLATTEN_HIERARCHY none [get_runs synth_1]
+set_property STEPS.OPT_DESIGN.ARGS.DIRECTIVE RuntimeOptimized [get_runs impl_1]
+set_property STEPS.PLACE_DESIGN.ARGS.DIRECTIVE RuntimeOptimized [get_runs impl_1]
+set_property STEPS.ROUTE_DESIGN.ARGS.DIRECTIVE RuntimeOptimized [get_runs impl_1]
 reset_run synth_1
 launch_runs synth_1 -jobs 4
 wait_on_run synth_1
