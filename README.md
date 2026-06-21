@@ -1,6 +1,7 @@
 # Melody Game of MicroBlaze
 
-本工程是在 HUSTerCH / FengSheng 的 Nexys4 DDR MicroBlaze 示例工程基础上改造的课堂综合项目。当前目标不是保留所有原始例程，而是交付一个基于 MicroBlaze、VS1003B 音频模块和 VGA 显示的三键下落式音游。
+本工程是在 HUSTerCH / FengSheng 的 Nexys4 DDR MicroBlaze 示例工程https://github.com/HUSTerCH/Mini_IO.git基础上改造的课堂综合项目。
+当前工程是一个基于 MicroBlaze、VS1003B 音频模块和 VGA 显示的三键下落式音游。
 
 ## 当前硬件
 
@@ -10,8 +11,6 @@
 - 显示：板载 VGA 接口，RTL 负责稳定像素扫描和画面绘制
 - 输入：BTNL/BTNC/BTNR 分别对应左/中/右三轨
 - 输出：16 个 LED 做氛围灯，数码管显示判定/状态和百分比得分
-
-旧的 J8 PWM 音频输出已经从最终工程中移除。最终听歌只走 VS1003B 的 PHONE/耳机输出。
 
 ## 最终烧录文件
 
