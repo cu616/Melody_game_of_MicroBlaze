@@ -1,6 +1,7 @@
 # Melody Game of MicroBlaze
 
-本工程是在 HUSTerCH / FengSheng 的 Nexys4 DDR MicroBlaze 示例工程https://github.com/HUSTerCH/Mini_IO.git 基础上改造的课堂综合项目。
+本工程是在 HUSTerCH / FengSheng 的 Nexys4 DDR MicroBlaze 示例工程https://github.com/HUSTerCH/Mini_IO.git 
+基础上改造的课堂综合项目。
 当前工程是一个基于 MicroBlaze、VS1003B 音频模块和 VGA 显示的三键下落式音游。
 
 ## 当前硬件
